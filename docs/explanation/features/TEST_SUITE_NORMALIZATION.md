@@ -51,7 +51,7 @@ Each line names a test (`file::test`) or a whole file, followed by `# reason`.
 - `SIMPLECHAT_IGNORE_KNOWN_FAILURES=1` turns the list off.
 - Tests that GitHub workflows run are never listed, so the list cannot change
   what CI checks.
-- Since 0.261.492 the whole suite runs on every pull request and the list may
+- Since 0.261.493 the whole suite runs on every pull request and the list may
   only shrink; see `FUNCTIONAL_TEST_SUITE_CI.md`.
 - `functional_tests/test_functional_known_failures_list.py` checks that the list
   parses and names existing files, and that the plugin behaves as described.

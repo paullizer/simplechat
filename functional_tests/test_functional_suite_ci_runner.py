@@ -2,8 +2,8 @@
 # test_functional_suite_ci_runner.py
 """
 Functional test for the full-suite CI workflow and its helpers.
-Version: 0.261.492
-Implemented in: 0.261.492
+Version: 0.261.493
+Implemented in: 0.261.493
 
 This test ensures that the known-failures list guard reports only new entries,
 that run_tests.py splits the functional files into disjoint shards that cover

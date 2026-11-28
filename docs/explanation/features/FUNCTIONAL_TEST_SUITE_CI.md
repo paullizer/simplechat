@@ -1,6 +1,6 @@
 # Functional Test Suite in CI
 
-Implemented in version: **0.261.492**
+Implemented in version: **0.261.493**
 
 ## Overview and Purpose
 

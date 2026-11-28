@@ -1,8 +1,9 @@
 # test_orchestration_relational_results.py
 """
 Functional tests for authorized, retained multi-file calculation results.
-Version: 0.261.481
+Version: 0.261.493
 Implemented in: 0.261.437; 0.261.446
+Schema finding returned to the authoring model with its location added in: 0.261.493
 Evaluation findings returned to the authoring model added in: 0.261.470
 Previous attempt's program carried forward, incomplete replies asked again added in: 0.261.478
 Source-header failure classification added in: 0.261.439
@@ -229,7 +230,7 @@ def test_relational_arguments_and_legacy_single_source_contracts_are_distinct():
         None, "body", "request", "selector", "saved_unsupported",
         "saved_wrong_sources", "resume_correction",
         "two_corrections", "correction_exhausted", "authored_version",
-        "evaluation_correction", "evaluation_exhausted",
+        "evaluation_correction", "evaluation_exhausted", "schema_correction",
         "prior_attempt", "prior_attempt_other_turn", "prior_attempt_completed",
         "reply_cut_off_after_finding", "reply_empty_exhausted", "reply_refused",
     ],
@@ -361,7 +362,7 @@ def test_prepared_relational_owner_uses_complete_input_and_checkpoints_program(m
         prompts = []
         faulty_replies = {
             "two_corrections": 2, "correction_exhausted": 3,
-            "evaluation_correction": 1, "evaluation_exhausted": 3,
+            "evaluation_correction": 1, "evaluation_exhausted": 3, "schema_correction": 1,
             "reply_cut_off_after_finding": 1,
         }.get(mutation, 0)
         # The harness's own error names its rule as ``validation_rule``. Its module needs the
@@ -401,6 +402,10 @@ def test_prepared_relational_owner_uses_complete_input_and_checkpoints_program(m
                             "then": deepcopy(amount["expression"]),
                         }],
                     }
+                elif mutation == "schema_correction":
+                    # Every column exists and every expression is valid: the step only carries
+                    # a property its operation does not define.
+                    faulty["steps"][1]["private_marker"] = True
                 else:
                     faulty["steps"][0]["on"][0]["right"] = "catalog.missing"
                 return json.dumps(faulty)
@@ -568,6 +573,7 @@ def test_prepared_relational_owner_uses_complete_input_and_checkpoints_program(m
             return
         if mutation not in (
             None, "resume_correction", "two_corrections", "authored_version", "evaluation_correction",
+            "schema_correction",
         ):
             assert result["status"] == "failed", result
             assert result["failure"]["native_code"] in {
@@ -579,7 +585,29 @@ def test_prepared_relational_owner_uses_complete_input_and_checkpoints_program(m
         assert result["status"] == "completed", json.dumps(
             {"result": result, "diagnostics": failures}, default=str, indent=2,
         )
-        assert len(calls) == {"two_corrections": 3, "evaluation_correction": 2}.get(mutation, 1)
+        assert len(calls) == {
+            "two_corrections": 3, "evaluation_correction": 2, "schema_correction": 2,
+        }.get(mutation, 1)
+        if mutation == "schema_correction":
+            # 0.261.493: a program that fails its schema was returned as "schema, step 0" and
+            # nothing else. The author is now told where, by the schema's own names.
+            assert "rejection" not in prompts[0]
+            (problem,) = prompts[1]["rejection"]["feedback"]["schema_problems"]
+            assert (problem["argument_path"], problem["argument_branch"]) == ("steps_1", "derive")
+            assert problem["argument_keyword"] == "additionalproperties"
+            assert problem["extra_property_count"] == 1 and problem["step_index"] == 1
+            assert problem["allowed_properties"] == ["id", "input", "op", "transform"]
+            assert prompts[1]["rejection"]["location"] == {
+                "schema_keyword": "additionalproperties", "schema_problem_count": 1, "step_op": "derive",
+            }
+            assert prompts[1]["rejected_program"]["steps"][1]["private_marker"] is True
+            returned = [item for item in failures if (item or {}).get("correction_check") == "schema"]
+            assert len(returned) == 1 and returned[0]["correction_repeated"] is False
+            assert returned[0]["native_schema_keyword"] == "additionalproperties"
+            assert (returned[0]["native_step_index"], returned[0]["native_step_op"]) == (1, "derive")
+            assert returned[0]["native_schema_problem_count"] == 1
+            # The property the author invented is its own text: it is counted, never logged.
+            assert "private_marker" not in json.dumps(failures, default=str)
         if mutation == "evaluation_correction":
             # The evaluator's finding went back to the author with its own program: which step
             # and operand, what it expected and what it found. No cell value.
@@ -608,6 +636,7 @@ def test_prepared_relational_owner_uses_complete_input_and_checkpoints_program(m
         assert state["phase"] == "retained"
         assert state["calls_used"] == {
             "resume_correction": 2, "two_corrections": 3, "evaluation_correction": 2,
+            "schema_correction": 2,
         }.get(mutation, 1)
         assert state["completion_confirmed"] is True
         assert state["program_sha256"] == hashlib.sha256(

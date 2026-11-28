@@ -1,8 +1,9 @@
 # test_model_catalog_token_evidence.py
 """
 Offline functional tests for the complete, evidence-backed model token catalog.
-Version: 0.261.362
+Version: 0.261.493
 Implemented in: 0.261.035
+Declared tokenizers of OpenAI text models audited against the tiktoken model table: 0.261.493
 GPT-4o, GPT-4.1 and o-series token audit: 0.261.362
 React V2 catalog integration: 0.261.122
 
@@ -176,6 +177,27 @@ AUDITED_NATIVE_LIMITS = {
 # Separately audited existing text records; never expand the original 75-ID audit.
 # Native context, conservative output, exact snapshots, Azure context, Azure input.
 LEGACY_TEXT_VERIFIED_AT = "2026-10-20"
+TOKENIZER_VERIFIED_AT = "2026-11-28"
+TOKENIZER_SOURCE_ID = "openai-tiktoken-model-table"
+# OpenAI's tiktoken model table as published for v0.14.0, limited to the entries a catalog
+# record can meet: an exact name first, then the first prefix the name starts with.
+TIKTOKEN_EXACT_NAMES = {
+    "o1": "o200k_base", "o3": "o200k_base", "o4-mini": "o200k_base", "gpt-5": "o200k_base",
+    "gpt-4.1": "o200k_base", "gpt-4o": "o200k_base", "gpt-4": "cl100k_base",
+    "gpt-3.5-turbo": "cl100k_base", "gpt-3.5": "cl100k_base", "gpt-35-turbo": "cl100k_base",
+}
+TIKTOKEN_NAME_PREFIXES = (
+    ("o1-", "o200k_base"), ("o3-", "o200k_base"), ("o4-mini-", "o200k_base"), ("gpt-5", "o200k_base"),
+    ("gpt-4.5-", "o200k_base"), ("gpt-4.1-", "o200k_base"), ("chatgpt-4o-", "o200k_base"),
+    ("gpt-4o-", "o200k_base"), ("gpt-4-", "cl100k_base"), ("gpt-3.5-turbo-", "cl100k_base"),
+    ("gpt-35-turbo-", "cl100k_base"),
+)
+
+
+def tiktoken_table_encoding(name):
+    if name in TIKTOKEN_EXACT_NAMES:
+        return TIKTOKEN_EXACT_NAMES[name]
+    return next((encoding for prefix, encoding in TIKTOKEN_NAME_PREFIXES if name.startswith(prefix)), None)
 LEGACY_TEXT_LIMITS = {
     "gpt-4o": (128000, 4096, ("2024-05-13", "2024-08-06", "2024-11-20"), 128000, 128000),
     "gpt-4o-mini": (128000, 16384, ("2024-07-18",), 128000, 128000),
@@ -813,10 +835,85 @@ class TestModelCatalogTokenEvidence(unittest.TestCase):
                 self.assertEqual(azure["outputTokenAccounting"], "total_generation")
                 for scope in (model, *model["tokenLimitProfiles"]):
                     for field, evidence in scope["tokenLimitEvidence"].items():
+                        if field == "tokenizer":
+                            # The encoding is a later audit of its own, checked below.
+                            self.assertEqual(evidence["verifiedAt"], TOKENIZER_VERIFIED_AT)
+                            continue
                         self.assertEqual(evidence["verifiedAt"], LEGACY_TEXT_VERIFIED_AT)
                         self.assertEqual(evidence["status"], "unknown" if scope[field] is None else "verified")
                         for source_id in evidence["sourceIds"]:
                             self.assertEqual(self.sources[source_id]["verifiedAt"], LEGACY_TEXT_VERIFIED_AT)
+
+    def test_declared_tokenizers_are_exactly_what_the_published_table_resolves(self):
+        """0.261.493: a model the tokenizer library did not know was sized in bytes."""
+        import tiktoken
+
+        declared = {model_id: model["tokenizer"] for model_id, model in self.models.items() if "tokenizer" in model}
+        expected = {
+            model_id: tiktoken_table_encoding(model_id) for model_id, model in self.models.items()
+            if model.get("provider") == "openai" and "tokenLimitEvidence" in model and "contextWindow" in model
+            and tiktoken_table_encoding(model_id)
+        }
+        self.assertEqual(declared, expected)
+        self.assertEqual(len(declared), 33)
+        self.assertEqual(self.sources[TOKENIZER_SOURCE_ID]["verifiedAt"], TOKENIZER_VERIFIED_AT)
+        self.assertEqual(
+            self.sources[TOKENIZER_SOURCE_ID]["url"],
+            "https://github.com/openai/tiktoken/blob/main/tiktoken/model.py",
+        )
+        for model_id, encoding in declared.items():
+            with self.subTest(model=model_id):
+                model = self.models[model_id]
+                evidence = model["tokenLimitEvidence"]["tokenizer"]
+                self.assertEqual(
+                    (evidence["status"], evidence["sourceIds"], evidence["verifiedAt"]),
+                    ("verified", [TOKENIZER_SOURCE_ID], TOKENIZER_VERIFIED_AT),
+                )
+                self.assertIn(TOKENIZER_SOURCE_ID, model["sourceIds"])
+                self.assertIn(model_id, evidence["note"])
+                # The hosting profiles carry capacities only: the encoding belongs to the model.
+                for profile in model.get("tokenLimitProfiles") or ():
+                    self.assertNotIn("tokenizer", profile)
+                    self.assertNotIn("tokenizer", profile["tokenLimitEvidence"])
+                self.assertEqual(tiktoken.get_encoding(encoding).name, encoding)
+                self.assertEqual(catalog_resolution.capabilities.resolve_model_tokenizer(model_id), encoding)
+                for alias in model["verifiedAliases"]:
+                    self.assertEqual(catalog_resolution.capabilities.resolve_model_tokenizer(alias), encoding)
+        # Nothing is declared for a model the table does not resolve, whoever made it.
+        for model_id in ("gpt-chat-latest", "claude-opus-5", "gemini-2.5-pro", "grok-4.5", "phi-4-reasoning"):
+            self.assertIn(model_id, self.models)
+            self.assertNotIn("tokenizer", self.models[model_id])
+            self.assertEqual(catalog_resolution.capabilities.resolve_model_tokenizer(model_id), "")
+        # A deployment name or a family is not the model: the match is the one numeric limits use.
+        for name in ("gpt-5.4-custom", "my-gpt-5.4", "gpt-5", "GPT-5.4", ""):
+            expected_name = {"gpt-5": "o200k_base", "GPT-5.4": "o200k_base"}.get(name, "")
+            self.assertEqual(catalog_resolution.capabilities.resolve_model_tokenizer(name), expected_name)
+
+    def test_a_tokenizer_declaration_needs_verified_evidence_on_the_model_itself(self):
+        def changed(change):
+            catalog = copy.deepcopy(self.catalog)
+            change(next(model for model in catalog["models"] if model["id"] == "gpt-5.4"))
+            return catalog
+
+        self.validator.validate(self.catalog)
+        cases = (
+            lambda model: model["tokenLimitEvidence"].pop("tokenizer"),
+            lambda model: model.pop("tokenizer"),
+            lambda model: model["tokenLimitEvidence"]["tokenizer"].update(status="unknown"),
+            lambda model: model.update(tokenizer="p50k_base"),
+            lambda model: model["tokenLimitProfiles"][0]["tokenLimitEvidence"].update(
+                tokenizer=copy.deepcopy(model["tokenLimitEvidence"]["tokenizer"]),
+            ),
+        )
+        for index, change in enumerate(cases):
+            with self.subTest(case=index), self.assertRaises(ValidationError):
+                self.validator.validate(changed(change))
+        # Evidence that is not verified is not a declaration the runtime reads.
+        unverified = copy.deepcopy(self.models["gpt-5.4"])
+        unverified["tokenLimitEvidence"]["tokenizer"]["status"] = "unknown"
+        self.assertEqual(
+            catalog_resolution.capabilities.resolve_model_tokenizer("gpt-5.4", catalog_records=[unverified]), "",
+        )
 
     def test_legacy_text_snapshot_and_host_qualifications_are_explicit(self):
         gpt4o = self.models["gpt-4o"]

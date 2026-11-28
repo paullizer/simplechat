@@ -205,7 +205,8 @@
         "outputTokenLimit": {"$ref": "#/$defs/tokenEvidence"},
         "effectiveContextWindow": {"$ref": "#/$defs/tokenEvidence"},
         "outputTokenAccounting": {"$ref": "#/$defs/tokenEvidence"},
-        "toolReasoningEfforts": {"$ref": "#/$defs/tokenEvidence"}
+        "toolReasoningEfforts": {"$ref": "#/$defs/tokenEvidence"},
+        "tokenizer": {"$ref": "#/$defs/tokenEvidence"}
       },
       "additionalProperties": false
     },
@@ -358,7 +359,8 @@
         {"required": ["toolReasoningEfforts"]}
       ],
       "allOf": [
-        {"$ref": "#/$defs/capacityEvidenceConsistency"}
+        {"$ref": "#/$defs/capacityEvidenceConsistency"},
+        {"properties": {"tokenLimitEvidence": {"properties": {"tokenizer": false}}}}
       ],
       "dependentSchemas": {
         "outputTokenAccounting": {
@@ -478,6 +480,10 @@
         "outputTokenAccounting": {
           "$ref": "#/$defs/outputTokenAccounting"
         },
+        "tokenizer": {
+          "enum": ["o200k_base", "cl100k_base"],
+          "description": "The tiktoken encoding this model's text is counted with. Declared only where a first-party source names it for the model, by exact name or by a published name rule; never copied from a related model. A model without one is counted by an upper bound."
+        },
         "tokenLimitEvidence": {
           "allOf": [
             {"$ref": "#/$defs/tokenEvidenceMap"},
@@ -493,6 +499,18 @@
       },
       "allOf": [
         {"$ref": "#/$defs/capacityEvidenceConsistency"},
+        {
+          "if": {"required": ["tokenizer"]},
+          "then": {
+            "properties": {
+              "tokenLimitEvidence": {
+                "required": ["tokenizer"],
+                "properties": {"tokenizer": {"properties": {"status": {"const": "verified"}}}}
+              }
+            }
+          },
+          "else": {"properties": {"tokenLimitEvidence": {"properties": {"tokenizer": false}}}}
+        },
         {
           "if": {"properties": {"tokenLimitsApplicability": {"const": "non-text"}}},
           "then": {

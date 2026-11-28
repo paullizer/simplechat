@@ -325,12 +325,18 @@ def _resolve_answer_quote(quote, status, requirement, candidate):
                 fallback = _fallback_candidate_quote(candidate)
                 if fallback and fallback in candidate:
                     return fallback
-        raise CompletenessError("completeness_candidate_reference_invalid")
+        # A satisfied judgment quoted text that is not in the answer it judged.
+        raise CompletenessError("completeness_candidate_reference_invalid", details={
+            "candidate_reference_rule": "answer_quote_not_in_candidate", "answer_quote_chars": len(quote),
+        })
     if _is_negative_or_global_requirement(requirement, candidate):
         fallback = _fallback_candidate_quote(candidate)
         if fallback and fallback in candidate:
             return fallback
-    raise CompletenessError("completeness_candidate_reference_invalid")
+    # A satisfied judgment quoted nothing.
+    raise CompletenessError("completeness_candidate_reference_invalid", details={
+        "candidate_reference_rule": "answer_quote_missing", "answer_quote_chars": len(quote),
+    })
 
 
 def _evidence_aliases(evidence):
@@ -437,7 +443,7 @@ def normalize_assessment(payload, *, candidate, evidence, previous=()):
         raise CompletenessError("completeness_report_invalid")
     aliases = _evidence_aliases(evidence)
     ids = set()
-    for item in requirements:
+    for position, item in enumerate(requirements):
         if type(item) is not dict or set(item) != {
             "id", "requirement", "status", "reason", "evidence_refs", "answer_quote",
         }:
@@ -453,9 +459,16 @@ def normalize_assessment(payload, *, candidate, evidence, previous=()):
         if type(item["status"]) is not str or item["status"] not in REQUIREMENT_STATUSES:
             raise CompletenessError("completeness_report_invalid")
         item["evidence_refs"] = _resolve_evidence_refs(item["evidence_refs"], evidence, aliases)
-        item["answer_quote"] = _resolve_answer_quote(
-            item["answer_quote"], item["status"], canonical.get(item["id"], item["requirement"]), candidate,
-        )
+        try:
+            item["answer_quote"] = _resolve_answer_quote(
+                item["answer_quote"], item["status"], canonical.get(item["id"], item["requirement"]), candidate,
+            )
+        except CompletenessError as error:
+            # Which judgment it was, by position: its text is the checker's own and is not logged.
+            error.details.update(
+                requirement_index=position, requirement_count=len(requirements), candidate_chars=len(candidate),
+            )
+            raise
     if previous:
         if ids != set(canonical):
             _requirements_changed(canonical, ids)
@@ -614,13 +627,17 @@ def check_and_correct(
             # the limit came from and how the size was estimated. Counts and closed codes only.
             diagnostic.update(context_budget_log_fields(getattr(error, "audit", None)))
             if isinstance(error, CompletenessError):
-                for key in ("evidence_ref_count", "evidence_refs_list"):
+                for key in (
+                    "evidence_ref_count", "evidence_refs_list",
+                    "requirement_index", "requirement_count", "answer_quote_chars", "candidate_chars",
+                ):
                     if type(error.details.get(key)) in (int, bool):
                         diagnostic[key] = error.details[key]
-                rule = error.details.get("evidence_rule")
+                rule = error.details.get("evidence_rule") or error.details.get("candidate_reference_rule")
                 if rule in (
                     "evidence_reference_list_invalid", "evidence_reference_string_required",
                     "evidence_reference_unknown",
+                    "answer_quote_not_in_candidate", "answer_quote_missing",
                 ):
                     diagnostic["validation_rule"] = rule
             on_diagnostic(diagnostic)

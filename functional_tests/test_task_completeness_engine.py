@@ -1,8 +1,9 @@
 # test_task_completeness_engine.py
 """Grounded, bounded task checking and recovery.
 
-Version: 0.261.490
+Version: 0.261.493
 Implemented in: 0.261.382; 0.261.384; 0.261.416; 0.261.418; 0.261.422
+Rule and position of a rejected answer quote added in: 0.261.493
 Input-budget numbers on an unavailable check added in: 0.261.478
 Those numbers logged under names telemetry keeps in: 0.261.490
 """
@@ -150,6 +151,47 @@ def test_evidence_reference_repair_gets_valid_labels_without_rewriting_the_answe
     assert diagnostics[0]["validation_rule"] == "evidence_reference_unknown"
     assert diagnostics[0]["report_repair_count"] == 0 and diagnostics[0]["evidence_ref_count"] == 1
     assert "PRIVATE_WRONG_REFERENCE" not in json.dumps(diagnostics)
+
+
+@pytest.mark.parametrize("quote,rule", [
+    ("PRIVATE_QUOTE_THAT_IS_NOT_IN_THE_ANSWER", "answer_quote_not_in_candidate"),
+    ("", "answer_quote_missing"),
+])
+def test_a_rejected_answer_quote_names_its_rule_and_its_judgment(quote, rule):
+    """0.261.493: the record and the repair request said only that a reference was invalid.
+
+    Which judgment it was, by position, and whether its quote was missing or not in the answer
+    now reach both. The quote and the judgment's text are the checker's own and reach neither.
+    """
+    calls, diagnostics = [], []
+    wrong = json.loads(assessment())
+    wrong["requirements"][0]["answer_quote"] = quote
+    replies = iter([json.dumps(wrong), assessment()])
+
+    def invoke(messages, stage, *, response_format=None):
+        calls.append(deepcopy(messages))
+        return next(replies)
+
+    candidate = "Evaluation"
+    result, state = check_and_correct(
+        candidate, instruction="Include the status.", contract={"kind": "text-v1"},
+        evidence={"record": {"status": "Evaluation"}},
+        policy={"enabled": True, "max_corrections": 2},
+        invoke=invoke, validate=lambda value: [], on_diagnostic=diagnostics.append,
+    )
+    assert result == candidate and state["status"] == "complete" and state["report_repairs"] == 1
+    (diagnostic,) = diagnostics
+    assert diagnostic["validation_code"] == "completeness_candidate_reference_invalid"
+    assert diagnostic["validation_rule"] == rule
+    assert (diagnostic["requirement_index"], diagnostic["requirement_count"]) == (0, 1)
+    assert (diagnostic["answer_quote_chars"], diagnostic["candidate_chars"]) == (len(quote), len(candidate))
+    problem = json.loads(calls[1][-1]["content"])["assessment_problem"]
+    assert problem == {
+        "code": "completeness_candidate_reference_invalid", "candidate_reference_rule": rule,
+        "answer_quote_chars": len(quote), "requirement_index": 0, "requirement_count": 1,
+        "candidate_chars": len(candidate),
+    }
+    assert "PRIVATE_QUOTE" not in json.dumps(diagnostics) + json.dumps(problem)
 
 
 def test_actual_missing_tool_facts_are_repaired_and_rechecked():

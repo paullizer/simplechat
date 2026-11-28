@@ -949,6 +949,7 @@ def _evaluate_numeric_operands(expression, context):
                 expression_index=context.step_count,
                 value_index=value_index,
                 left_category=_native_value_category(value),
+                value_kind=tabular_value_kind(value),
             ) from exc
     return result
 
@@ -1229,7 +1230,8 @@ def aggregate_precise_tabular_values(values, operation, *, diagnostic_detail=Non
     result = Decimal(0) if operation == "sum" else None
     try:
         with localcontext(_PRECISE_DECIMAL_CONTEXT):
-            for value_index, raw in enumerate(values):
+            remaining = enumerate(values)
+            for value_index, raw in remaining:
                 try:
                     value = _parse_decimal_value(raw, precise=True)
                     if operation == "sum":
@@ -1237,6 +1239,16 @@ def aggregate_precise_tabular_values(values, operation, *, diagnostic_detail=Non
                     elif result is None or (value < result if operation == "min" else value > result):
                         result = value
                 except TabularTransformationEvaluationError as exc:
+                    # The rest of this measure's values are read once more, only to count how
+                    # many cannot be read as a number: one stray cell and a whole column of text
+                    # are different faults, and the first value alone does not say which.
+                    unreadable, total = 1, value_index + 1
+                    for _later_index, later in remaining:
+                        total += 1
+                        try:
+                            _parse_decimal_value(later, precise=True)
+                        except TabularTransformationEvaluationError:
+                            unreadable += 1
                     raise _attach_evaluation_detail(
                         exc,
                         category="aggregate_value",
@@ -1244,6 +1256,9 @@ def aggregate_precise_tabular_values(values, operation, *, diagnostic_detail=Non
                         expected_type="number",
                         value_index=value_index,
                         left_category=_native_value_category(raw),
+                        value_kind=tabular_value_kind(raw),
+                        unreadable_value_count=unreadable,
+                        value_count=total,
                         **(diagnostic_detail or {}),
                     ) from exc
             return None if result is None else format(result, "f")

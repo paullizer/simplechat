@@ -21,7 +21,7 @@ _CONTEXT_BUDGET_LOG_COUNTS = (
 _CONTEXT_BUDGET_LOG_CODES = (
     ("limit_source", "limit_source"), ("limit_status", "limit_status"),
     ("output_reservation", "output_reservation"), ("decision", "budget_decision"),
-    ("token_estimator", "size_estimator"),
+    ("token_estimator", "size_estimator"), ("token_estimator_source", "size_estimator_source"),
 )
 _CONTEXT_BUDGET_CODE_RE = re.compile(r"[a-z][a-z0-9_]{0,39}(?:\+[a-z][a-z0-9_]{0,39})?")
 _MODEL_BUDGET_MESSAGES = {

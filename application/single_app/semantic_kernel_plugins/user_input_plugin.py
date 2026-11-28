@@ -1,10 +1,14 @@
 # user_input_plugin.py
 """Interactive questions, scoped to a retained V2 local-agent execution."""
 
+import logging
+
 from semantic_kernel.functions import kernel_function
 from azure.core.exceptions import AzureError
 
+from agent_execution_context import current_agent_execution
 from agent_interaction_contracts import agent_tool_call_id, UserInputError
+from functions_appinsights import exception_log_fields, log_event, workflow_log_context
 from functions_user_input import request_user_input
 
 
@@ -15,6 +19,27 @@ INTERACTIVE_INPUT_INSTRUCTIONS = (
     "Use useful suggestions with a custom answer for open questions. Do not invent optional "
     "interviews, repeat answered questions, ask for secrets, or use answers as action approval."
 )
+
+
+def _log_refusal(error, cause=None):
+    """Why a question could not be opened: its code, its rule and where it was raised.
+
+    Every refusal reads the same to the person and ends the agent's answer, so without this
+    record the conditions cannot be told apart. No part of the question is recorded.
+    """
+    frame = current_agent_execution()
+    identity = getattr(frame, "identity", None)
+    log_event(
+        "[USER_INPUT] An agent's question to the user could not be opened.",
+        level=logging.WARNING,
+        extra={
+            **workflow_log_context(conversation_id=getattr(identity, "conversation_id", None)),
+            "stage": "user_input_request", "validation_code": error.code,
+            "validation_rule": error.rule, "status_code": error.status_code,
+            "tool_call_id_present": bool(agent_tool_call_id.get()),
+            **exception_log_fields(cause if cause is not None else error),
+        },
+    )
 
 
 class UserInputPlugin:
@@ -34,7 +59,10 @@ class UserInputPlugin:
     def ask(self, specification: str) -> str:
         try:
             return request_user_input(specification, agent_tool_call_id.get())
-        except UserInputError:
+        except UserInputError as error:
+            _log_refusal(error)
             raise
         except (AzureError, ValueError, TypeError, PermissionError) as error:
-            raise UserInputError("input_unavailable", 503) from error
+            failure = UserInputError("input_unavailable", 503, rule="request_could_not_be_saved_or_normalized")
+            _log_refusal(failure, cause=error)
+            raise failure from error

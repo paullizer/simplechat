@@ -1,8 +1,9 @@
 # test_guided_user_input.py
 """Functional tests for open questions and real local-agent pause/resume.
 
-Version: 0.261.411
+Version: 0.261.493
 Implemented in: 0.261.411
+A refused question logs its code, its rule and where it was raised: 0.261.493
 Uses the installed SK loop and SDK-default Cosmos doubles, never a provider network.
 """
 
@@ -220,3 +221,42 @@ def test_question_failure_cannot_be_interpreted_as_a_successful_tool_result(inpu
     with pytest.raises(env.owner.UserInputError):
         asyncio.run(env.invoke())
     assert env.effects == ["completed-before-question"]
+
+
+@pytest.mark.parametrize("case,code,rule,status", [
+    ("services", "input_unavailable", "services_not_configured", 503),
+    ("not_json", "input_invalid", "specification_not_json", 400),
+    ("not_object", "input_invalid", "specification_not_object", 400),
+    ("not_enabled", "input_not_interactive", "user_input_not_enabled", 409),
+])
+def test_a_refused_question_logs_which_condition_refused_it(input_runtime, monkeypatch, case, code, rule, status):
+    """0.261.493: every refusal reads "This question could not be continued" and ended the
+    agent's answer, and nothing recorded which condition it was."""
+    env = input_runtime
+    plugin = importlib.import_module("semantic_kernel_plugins.user_input_plugin")
+    logged = []
+    monkeypatch.setattr(plugin, "log_event", lambda message, **kwargs: logged.append((message, kwargs)))
+    private = "PRIVATE_QUESTION_TEXT"
+    if case == "services":
+        monkeypatch.setattr(env.owner, "_services", None)
+    elif case in ("not_json", "not_object"):
+        env.runtime.replies[1] = ChatMessageContent(role="assistant", items=[FunctionCallContent(
+            id="question-call", name="UserInput-request_user_input",
+            arguments=json.dumps({"specification": private if case == "not_json" else json.dumps([private])}),
+        )])
+    else:
+        # The function is in the kernel, as an earlier interactive run would leave it; this run is not one.
+        env.kernel.add_plugin(plugin.UserInputPlugin(), plugin_name="UserInput")
+        env.descriptor["user_input_enabled"] = False
+    with pytest.raises(env.owner.UserInputError) as failure:
+        asyncio.run(env.invoke())
+    assert (failure.value.code, failure.value.rule, failure.value.status_code) == (code, rule, status)
+    ((message, details),) = logged
+    record = details["extra"]
+    assert message == "[USER_INPUT] An agent's question to the user could not be opened."
+    assert (record["validation_code"], record["validation_rule"], record["status_code"]) == (code, rule, status)
+    assert record["stage"] == "user_input_request" and record["tool_call_id_present"] is True
+    # This runtime doubles the logging module, whose stand-in reports the error's type only;
+    # the application's own also reports the file, function and line that raised it.
+    assert record["error_type"] == "UserInputError"
+    assert private not in json.dumps(record)

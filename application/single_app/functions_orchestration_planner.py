@@ -44,7 +44,7 @@ from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 
 from config import cognitive_services_scope
 from functions_action_manifest import is_document_search_action
-from functions_appinsights import is_debug_enabled, log_event, workflow_log_context
+from functions_appinsights import exception_log_fields, is_debug_enabled, log_event, workflow_log_context
 from functions_document_analysis_results import narrative_analysis_options
 from functions_orchestration_context import (
     conversation_reference_messages, exact_requested_source_matches, resolve_elicitation_candidates,
@@ -1971,14 +1971,33 @@ def plan_request(
     correlation = workflow_log_context(conversation_id=conversation_id, turn_id=turn_id)
     deployment, current_proposal = None, None
     proposal_documents = {}
+    # What each corrected attempt was refused for, in order: (code, rule).
+    refusals = []
+
+    def _refusal_site(error):
+        """Where a refusal was raised, so one without a named rule can still be found."""
+        site = exception_log_fields(error).get('error_site') if error is not None else None
+        return {'error_site': site} if site else {}
 
     def _failure(reason, error=None, *, stage=None, message=None, attempt=None):
         _diagnose(stage or 'planning_failed', current_proposal, attempt=attempt, error=error)
+        final = (
+            (getattr(error, 'code', None), getattr(error, 'rule', None))
+            if isinstance(error, PlanValidationError) else (reason, None)
+        )
         log_event(
             '[ORCHESTRATION_PLANNER] The request could not be planned.',
             level=logging.WARNING, extra={
                 **correlation, 'reason': reason, 'stage': stage, 'revision': revision,
                 'attempt': attempt,
+                # The attempts before this one: how many were corrected, what the first and the
+                # previous were refused for, and whether this refusal is the previous one again.
+                'corrected_attempt_count': len(refusals),
+                'first_validation_rule': (refusals[0][1] or refusals[0][0]) if refusals else None,
+                'previous_validation_rule': (refusals[-1][1] or refusals[-1][0]) if refusals else None,
+                'refusal_repeated': bool(refusals) and refusals[-1] == final,
+                'distinct_refusal_count': len({*refusals, final}),
+                **_refusal_site(error),
                 'error_type': type(error).__name__ if error is not None else None,
                 'response_failure': error.reason if isinstance(error, PlannerResponseError) else None,
                 'response_finish_reason': error.finish_reason if isinstance(error, PlannerResponseError) else None,
@@ -2137,14 +2156,18 @@ def plan_request(
 
     def _correction_messages(error, stage, attempt, reply, *, handoff_present=False):
         _diagnose(stage, current_proposal, attempt=attempt, error=error)
+        refusal = (error.code, error.rule)
         log_event(
             '[ORCHESTRATION_PLANNER] Asking the planner to correct a rejected plan.',
             level=logging.INFO, extra={
                 **correlation, 'reason': error.code, 'attempt': attempt, 'revision': revision,
                 'stage': stage, 'validation_code': error.code, 'validation_rule': error.rule,
+                'refusal_repeated': bool(refusals) and refusals[-1] == refusal,
+                **_refusal_site(error),
                 **(error.diagnostics if isinstance(error, PlanValidationError) else {}),
             },
         )
+        refusals.append(refusal)
         return [
             *messages,
             {'role': 'assistant', 'content': reply},
@@ -2153,14 +2176,18 @@ def plan_request(
 
     def _protocol_correction_messages(reason, guidance, stage, attempt, reply):
         _diagnose(stage, current_proposal, attempt=attempt)
+        # A reply that is not a plan is refused by its reason alone, as the final record names it.
+        refusal = (reason, None)
         log_event(
             '[ORCHESTRATION_PLANNER] Asking the planner to correct a rejected plan.',
             level=logging.INFO, extra={
                 **correlation, 'reason': reason, 'attempt': attempt, 'revision': revision,
                 'stage': stage, 'validation_code': 'plan_structure_invalid',
                 'validation_rule': reason,
+                'refusal_repeated': bool(refusals) and refusals[-1] == refusal,
             },
         )
+        refusals.append(refusal)
         return [
             *messages,
             {'role': 'assistant', 'content': reply},

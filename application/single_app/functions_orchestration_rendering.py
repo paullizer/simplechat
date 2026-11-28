@@ -12,6 +12,7 @@ import hashlib
 import io
 import math
 import random
+import re
 import time
 import uuid
 from contextlib import contextmanager
@@ -267,6 +268,9 @@ def _raise_source_read_failure(exc):
             raise authority[0]
         if output_storage_failure(exc) is not None:
             raise_output_read_infrastructure_failure(exc)
+
+
+_DIAGNOSTIC_CODE = re.compile(r"[a-z][a-z0-9_]{0,79}")
 
 
 def output_failure(exc):
@@ -1385,6 +1389,20 @@ class OrchestrationRenderingService:
             yield stream
 
 
+def render_diagnostic(exc, *, attempted):
+    """What ended a file step, for the step owner's log only: a type and a closed code.
+
+    ``attempted`` says whether an output record existed, so a failure before any render attempt
+    is told apart from one during it. Never saved with the step and never shown.
+    """
+    code = getattr(exc, "code", None)
+    return {
+        "error_type": type(exc).__name__,
+        "error_code": code if type(code) is str and _DIAGNOSTIC_CODE.fullmatch(code) else None,
+        "attempted": bool(attempted),
+    }
+
+
 def render_failure_code(error_code):
     """The step failure a failed file reports when it carries a reason of its own."""
     return "file_sign_in_required" if error_code == OUTPUT_SIGN_IN_REQUIRED else "step_failed"
@@ -1552,6 +1570,7 @@ def resume_render_file(
                 )
         result["outputs"] = outputs
         result["output_error"] = {"code": code, "retryable": retryable}
+        result["render_diagnostic"] = render_diagnostic(exc, attempted=True)
         return result
 
 
@@ -1626,4 +1645,5 @@ def execute_render_file(
             failure=build_failure(render_failure_code(code)), error=message,
         )
         result["output_error"] = {"code": code, "retryable": retryable}
+        result["render_diagnostic"] = render_diagnostic(exc, attempted=output is not None)
         return result

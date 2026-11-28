@@ -17,6 +17,7 @@ from functions_model_capabilities import (
     ModelTokenBudgetError,
     normalize_token_limit,
     resolve_model_token_budget,
+    resolve_model_tokenizer,
 )
 from model_endpoint_clients import ModelEndpointBehavior, is_response_format_rejection, is_reasoning_parameter_rejection
 from functions_model_endpoint_diagnostics import (
@@ -99,10 +100,16 @@ def calculate_workflow_context_budget(messages, model, *, provider=None, tools=N
         raise ModelTokenBudgetError(
             "model_context_invalid", "The requested workflow response length exceeds the model's output limit.",
         )
-    try:
-        tokenizer = tiktoken.encoding_name_for_model(budget.model_id)
-    except KeyError:
-        tokenizer = None
+    # The catalog's declaration for this exact model is read first. A model it does not
+    # declare is looked up in the installed tokenizer library, as before.
+    tokenizer = resolve_model_tokenizer(budget.model_id) or None
+    tokenizer_source = "catalog" if tokenizer else "none"
+    if tokenizer is None:
+        try:
+            tokenizer = tiktoken.encoding_name_for_model(budget.model_id)
+            tokenizer_source = "library"
+        except KeyError:
+            tokenizer = None
     windows = [value for value in (context_limit, budget.effective_context_window) if value is not None]
     bounded_model = bool(windows or input_limit)
     token_count, estimator = _count_request_tokens(
@@ -154,6 +161,7 @@ def calculate_workflow_context_budget(messages, model, *, provider=None, tools=N
         "input_tokens": token_count,
         "input_budget_tokens": input_budget,
         "token_estimator": estimator,
+        "token_estimator_source": tokenizer_source,
         "decision": "full_input" if token_count <= input_budget else "blocked",
         "truncated": False,
     }

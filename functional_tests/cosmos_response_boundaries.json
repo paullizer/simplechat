@@ -25629,10 +25629,10 @@
           }
         ],
         "batches": [],
-        "module_sha256": "ebf2f5512ec7fe016636d05791d9f32a08fd1e36dfbac8fbc9f7f1b23c581904"
+        "module_sha256": "37f325689304976d10b528d9702f069b393b2b3bce05470eb41731c6a466be37"
       },
       "classification": "sdk-compatible",
-      "contract": "Private query rows supply IDs only. The existing state owner normalizes each SDK point document and preserves its ETag before request authorization, public projection, and conditional answer/continuation claims.",
+      "contract": "Private query rows supply IDs only. The existing state owner normalizes each SDK point document and preserves its ETag before request authorization, public projection, and conditional answer/continuation claims. Re-reviewed 0.261.493: the module change names the rule on each refusal request_user_input raises (UserInputError.rule), for logging. This owner's body, its Cosmos query and its response consumers are unchanged.",
       "tests": [
         "functional_tests/test_guided_user_input_routes.py::test_routes_authorize_claim_and_do_not_replay_identical_continue"
       ],

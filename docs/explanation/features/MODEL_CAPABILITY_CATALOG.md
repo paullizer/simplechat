@@ -14,6 +14,8 @@ response length is not the model's maximum output.
 
 **GPT-4o, GPT-4.1, and o-series token coverage implemented in version: 0.261.362**
 
+**Declared tokenizers for OpenAI text models implemented in version: 0.261.493**
+
 - Current documentation version: **0.261.362**, coordinated with the application
   version update in `application\single_app\config.py`.
 - Application version owner: `application\single_app\config.py`.
@@ -252,6 +254,27 @@ For example, the token-related portion of Terra's native record includes:
 This is a capacity fragment, not a complete catalog record; identity metadata,
 qualitative flags, the source registry, and Azure qualifications remain in the
 full catalog.
+
+### Declared tokenizer (0.261.493)
+
+A token model record may declare `tokenizer`: the tiktoken encoding its text is counted with
+(`o200k_base` or `cl100k_base`). Request sizing reads it before asking the installed tokenizer
+library, so a model newer than that library is counted in tokens rather than by the UTF-8 byte
+upper bound.
+
+- A declaration needs a `tokenLimitEvidence.tokenizer` entry with status `verified`. Evidence
+  without a declaration, and a hosting profile that carries one, are refused by the schema: the
+  encoding belongs to the model, not to where it is hosted.
+- The match is the one numeric limits use: the record's `id` or a verified alias. A deployment
+  name or a family does not inherit a declaration.
+- 33 OpenAI text records are declared, from a **2026-11-28** audit against OpenAI's tiktoken
+  model table as published for v0.14.0 (`openai-tiktoken-model-table`): an exact model name
+  first, then the first name prefix. That table resolves every name beginning `gpt-5` to
+  `o200k_base`.
+- Nothing is declared for a model that table does not resolve (`gpt-chat-latest`) or for any
+  non-OpenAI model. Those keep the byte bound. Do not copy an encoding from a related model.
+- The field is optional and `schemaVersion` stays 4. A published catalog that uses it needs
+  `minimumAppVersion` 0.261.493, because earlier applications refuse the unknown property.
 
 ### Conditional profiles
 

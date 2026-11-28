@@ -750,6 +750,20 @@ def _numeric_catalog_record(model, records=None):
     return None
 
 
+def resolve_model_tokenizer(model, *, catalog_records=None):
+    """The encoding the catalog declares for this exact model, or "" when it declares none.
+
+    The match is the one numeric limits use: the record's id or a verified alias, never a
+    family or a deployment suffix. A declaration counts only with verified evidence.
+    """
+    record = _numeric_catalog_record(model, catalog_records)
+    if record is None:
+        return ""
+    declared = record.get("tokenizer")
+    evidence = (record.get("tokenLimitEvidence") or {}).get("tokenizer") or {}
+    return declared if isinstance(declared, str) and evidence.get("status") == "verified" else ""
+
+
 def _verified_catalog_model_version(model, record):
     """Recover a snapshot only from an exact numeric alias and an audited profile."""
     if record is None:

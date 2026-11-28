@@ -32,7 +32,7 @@ def configure_user_input(services):
 
 def services():
     if _services is None:
-        raise UserInputError("input_unavailable", 503)
+        raise UserInputError("input_unavailable", 503, rule="services_not_configured")
     return _services
 
 
@@ -78,21 +78,27 @@ def pending_requests(user_id, conversation_ids):
 
 def request_user_input(specification, call_id):
     frame, descriptor = current_agent_execution(), _continuation.get()
-    if (
-        not frame or not descriptor or not descriptor.get("user_input_enabled") or not call_id
-        or descriptor.get("mode") not in {"chat", "orchestration"}
-    ):
-        raise UserInputError("input_not_interactive")
+    # Each condition is named, because they all end the same way for the person asking.
+    not_interactive = (
+        "agent_execution_missing" if not frame else
+        "continuation_missing" if not descriptor else
+        "user_input_not_enabled" if not descriptor.get("user_input_enabled") else
+        "tool_call_id_missing" if not call_id else
+        "continuation_mode_unsupported" if descriptor.get("mode") not in {"chat", "orchestration"} else
+        None
+    )
+    if not_interactive:
+        raise UserInputError("input_not_interactive", rule=not_interactive)
     if current_workflow_identity(frame.identity.user_id, frame.identity.conversation_id) is not None:
-        raise UserInputError("input_not_interactive")
+        raise UserInputError("input_not_interactive", rule="workflow_execution")
     if not isinstance(specification, str) or len(specification.encode("utf-8")) > 32768:
-        raise UserInputError("input_invalid", 400)
+        raise UserInputError("input_invalid", 400, rule="specification_not_text_or_too_large")
     try:
         spec = json.loads(specification)
     except (ValueError, TypeError) as error:
-        raise UserInputError("input_invalid", 400) from error
+        raise UserInputError("input_invalid", 400, rule="specification_not_json") from error
     if type(spec) is not dict:
-        raise UserInputError("input_invalid", 400)
+        raise UserInputError("input_invalid", 400, rule="specification_not_object")
     user_id, conversation_id = frame.identity.user_id, frame.identity.conversation_id
     item_id = f"input_{state.key_for(descriptor['checkpoint_id'], call_id)}"
     fingerprint = state.key_for(spec)
@@ -123,15 +129,17 @@ def request_user_input(specification, call_id):
             if error.status_code != 409:
                 raise
             item = read_request(user_id, item_id)
-    if item["conversation_id"] != conversation_id or item["fingerprint"] != fingerprint:
-        raise UserInputError("input_changed")
+    if item["conversation_id"] != conversation_id:
+        raise UserInputError("input_changed", rule="saved_request_conversation_differs")
+    if item["fingerprint"] != fingerprint:
+        raise UserInputError("input_changed", rule="saved_request_specification_differs")
     if item["status"] in {"answered", "continuing", "completed"}:
         response, context = services().normalize_answer(
             item["question"], item["response"], item.get("answer_context"), user_id, conversation_id,
         )
         return json.dumps({"response": response, "context": context}, ensure_ascii=True)
     if item["status"] != "pending":
-        raise UserInputError("input_closed")
+        raise UserInputError("input_closed", rule="saved_request_closed")
     raise UserInputRequired(safe_request(item))
 
 

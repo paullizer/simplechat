@@ -390,6 +390,8 @@ def build_run_done_event(
     outputs=None,
     generated_images=None,
     m365_citations=None,
+    model_scope_type=None,
+    model_scope_id=None,
 ):
     """Terminal frame of the run endpoint.
 
@@ -436,6 +438,8 @@ def build_run_done_event(
                 'model_provider': model_provider,
                 'model_endpoint_id': model_endpoint_id,
                 'model_id': model_id,
+                'model_scope_type': model_scope_type,
+                'model_scope_id': model_scope_id,
                 'reasoning_effort': reasoning_effort,
                 'requested_reasoning_effort': requested_reasoning_effort,
                 'reasoning_mode': reasoning_mode,

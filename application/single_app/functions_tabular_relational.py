@@ -18,6 +18,7 @@ import re
 
 from jsonschema import Draft202012Validator
 
+from functions_schema_diagnostics import schema_error_location
 from functions_tabular_transformations import (
     TabularTransformationEvaluationError,
     TabularTransformationSpecError,
@@ -199,6 +200,8 @@ _DETAIL_KEYS = frozenset({
     "check", "role", "category", "step_index", "step_op", "transform_code", "missing_count",
     "field_index", "expression_index", "value_index", "measure_index",
     "left_category", "right_category", "expected_type",
+    "schema_keyword", "schema_problem_count",
+    "value_kind", "unreadable_value_count", "value_count",
 })
 NATIVE_DIAGNOSTIC_KEYS = {
     "check": "native_check", "role": "native_role", "category": "native_category",
@@ -208,10 +211,14 @@ NATIVE_DIAGNOSTIC_KEYS = {
     "value_index": "native_value_index", "measure_index": "native_measure_index",
     "left_category": "native_left_category", "right_category": "native_right_category",
     "expected_type": "expected_type",
+    "schema_keyword": "native_schema_keyword", "schema_problem_count": "native_schema_problem_count",
+    "value_kind": "native_value_kind", "unreadable_value_count": "native_unreadable_value_count",
+    "value_count": "native_value_count",
 }
 
 
 MODEL_FEEDBACK_MAX_NAMES = 200
+MODEL_FEEDBACK_MAX_SCHEMA_PROBLEMS = 8
 
 
 def safe_native_detail(detail):
@@ -312,13 +319,41 @@ def with_operation_version(value):
     return {**value, "version": derived}, authored
 
 
+def _schema_failure(value):
+    """The failure for a program that departs from its schema, or None when it conforms.
+
+    Every departure is located by the schema's own names: its keyword, its property path, the
+    operation a step names and what the schema allows there. The first is the failure's detail;
+    up to ``MODEL_FEEDBACK_MAX_SCHEMA_PROBLEMS`` go back to the program's author.
+    """
+    errors = sorted(
+        Draft202012Validator(relational_spec_schema()).iter_errors(value),
+        key=lambda error: [(type(part) is str, part) for part in error.absolute_path],
+    )
+    if not errors:
+        return None
+    problems = []
+    for error in errors[:MODEL_FEEDBACK_MAX_SCHEMA_PROBLEMS]:
+        path = list(error.absolute_path)
+        problems.append({
+            **({"step_index": path[1]} if len(path) > 1 and path[0] == "steps" and type(path[1]) is int else {}),
+            **schema_error_location(error),
+        })
+    first = problems[0]
+    return TabularRelationalError("relational_spec_invalid", detail={
+        "check": "schema", "schema_keyword": first["argument_keyword"],
+        "schema_problem_count": len(errors),
+        **({"step_index": first["step_index"]} if "step_index" in first else {}),
+        **({"step_op": first["argument_branch"]} if "argument_branch" in first else {}),
+    }, feedback={"schema_problems": problems, "schema_problem_count": len(errors)})
+
+
 def normalize_relational_spec(value, document_ids=None):
     """Reject malformed/ambiguous graphs before any file is read."""
     try:
-        valid = isinstance(value, dict) and next(
-            Draft202012Validator(relational_spec_schema()).iter_errors(value), None,
-        ) is None
-        _require(valid, check="schema")
+        failure = _schema_failure(value)
+        if failure is not None:
+            raise failure
         _require(len(json.dumps(value, allow_nan=False).encode("utf-8")) <= 65536, check="size_limit")
         spec = deepcopy(value)
         datasets = spec["datasets"]

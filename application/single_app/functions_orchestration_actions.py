@@ -768,6 +768,7 @@ async def invoke_action(
         calls = 0
         failure = None
         request_corrections = 0
+        call_findings = 0
         call_lock = asyncio.Lock()
         limit = get_max_auto_invoke_attempts(current_settings)
 
@@ -1121,12 +1122,15 @@ async def invoke_action(
                 'named_inputs': named_inputs,
                 **({'document_sources': list(document_profiles.values())} if bound_ids else {}),
             }))
-            require_integration_model_budget(
-                model_budget, [message.to_dict() for message in history.messages],
-                [metadata.model_dump(mode='json') for metadata in (
-                    functions if bound_ids else kernel.get_full_list_of_function_metadata()
-                )],
-            )
+            offered_functions = list(functions if bound_ids else kernel.get_full_list_of_function_metadata())
+
+            def require_budget():
+                require_integration_model_budget(
+                    model_budget, [message.to_dict() for message in history.messages],
+                    [metadata.model_dump(mode='json') for metadata in offered_functions],
+                )
+
+            require_budget()
             function_choice = FunctionChoiceBehavior.Auto(
                 maximum_auto_invoke_attempts=limit,
                 filters=(
@@ -1143,6 +1147,52 @@ async def invoke_action(
                 )
             else:
                 execution_settings.function_choice_behavior = function_choice
+
+            async def model_reply():
+                """The model's reply to the action. One that starts no function call is returned once.
+
+                An action's result is what its functions returned, so a reply that calls none has
+                nothing to give the step. The model is handed that fact as data, with the functions
+                it was offered, and replies once more; a second reply without a call ends the step.
+                """
+                nonlocal call_findings
+                answered = await await_agent_operation(
+                    service.get_chat_message_contents(history, execution_settings, kernel=kernel), frame,
+                )
+                if calls or call_findings or failure is not None or cancel_requested():
+                    return answered
+                call_findings += 1
+                for message in answered or []:
+                    history.add_message(message)
+                history.add_user_message(json.dumps({'finding': {
+                    'error_code': 'action_function_call_missing',
+                    'validation_rule': 'function_call_required',
+                    'function_calls_started': 0, 'function_call_limit': limit,
+                    'available_functions': [
+                        f'{metadata.plugin_name}-{metadata.name}' for metadata in offered_functions
+                    ],
+                    **({'bound_document_count': len(bound_ids)} if bound_ids else {}),
+                }}))
+                log_event(
+                    '[ORCHESTRATION_ADAPTERS] Action reply without a function call returned to its author.',
+                    level=logging.WARNING,
+                    extra={
+                        **workflow_log_context(
+                            conversation_id=getattr(context, 'conversation_id', None),
+                            turn_id=getattr(context, 'turn_id', None), run_id=getattr(context, 'run_id', None),
+                        ),
+                        'stage': 'action_results', 'validation_code': 'action_function_call_missing',
+                        'validation_rule': 'function_call_required',
+                        'model_reply_count': len(answered or []), 'function_call_limit': limit,
+                        'offered_function_count': len(offered_functions),
+                        'bound_document_count': len(bound_ids),
+                    },
+                )
+                require_budget()
+                return await await_agent_operation(
+                    service.get_chat_message_contents(history, execution_settings, kernel=kernel), frame,
+                )
+
             descriptor = _continuation.get()
             credential_journal = None
             if descriptor:
@@ -1156,17 +1206,13 @@ async def invoke_action(
                     if saved_history is not None:
                         history = saved_history
                         await credential_journal.resume_calls(history, function_behavior=function_choice)
-                    replies = await await_agent_operation(
-                        service.get_chat_message_contents(history, execution_settings, kernel=kernel), frame,
-                    )
+                    replies = await model_reply()
                     if credential_journal.pending or credential_journal.loaded:
                         credential_journal.save(history, completed=credential_journal.pending is None)
                     if credential_journal.pending:
                         raise credential_journal.pending
             else:
-                replies = await await_agent_operation(
-                    service.get_chat_message_contents(history, execution_settings, kernel=kernel), frame,
-                )
+                replies = await model_reply()
             if cancel_requested():
                 raise AgentExecutionCancelled('Action execution was cancelled.')
             if failure is not None:
@@ -1183,6 +1229,7 @@ async def invoke_action(
                     diagnostics={
                         'function_calls_started': calls, 'function_results_captured': len(outputs),
                         'model_reply_count': len(replies or []), 'request_correction_count': request_corrections,
+                        'call_finding_count': call_findings,
                         'bound_document_count': len(bound_ids), 'function_call_limit': limit,
                     },
                 )

@@ -1,8 +1,9 @@
 # test_workflow_context_budget.py
 """
 Functional tests for workflow provider-boundary context budgets.
-Version: 0.261.461
+Version: 0.261.493
 Implemented in: 0.261.106
+Request size counted with the catalog's declared tokenizer added in: 0.261.493
 Model persona budget accounting added in: 0.261.461
 
 These tests cover complete requests, selected-model limits, tool-result rounds,
@@ -164,6 +165,32 @@ def test_known_model_without_tokenizer_uses_a_conservative_bound(limits):
         [{"role": "user", "content": text}], "known-non-openai-model",
     )
     assert audit["token_estimator"] == "utf8_upper_bound"
+    assert audit["input_tokens"] >= len(text.encode("utf-8"))
+
+
+def test_a_model_the_catalog_declares_a_tokenizer_for_is_sized_in_tokens():
+    """0.261.493: gpt-5.4 was unknown to the tokenizer library, so its requests were sized in
+    UTF-8 bytes against a limit in tokens, several times their real size."""
+    text = "The quarterly report lists revenue by region and product line. " * 2000
+    messages = [{"role": "user", "content": text}]
+    audit = context.calculate_workflow_context_budget(messages, "gpt-5.4", provider="aoai", output_tokens=8192)
+    size_in_bytes = len(json.dumps({"messages": messages, "tools": []}, separators=(",", ":")).encode("utf-8"))
+    assert (audit["token_estimator"], audit["token_estimator_source"]) == ("o200k_base", "catalog")
+    assert audit["limit_source"] == "catalog" and audit["context_window_tokens"] == 1050000
+    assert audit["input_tokens"] * 4 < size_in_bytes
+    assert audit["decision"] == "full_input"
+    # A verified alias is the same model; a deployment name that only resembles it is not.
+    alias = context.calculate_workflow_context_budget(messages, "gpt-5.4-2026-03-05", provider="aoai", output_tokens=8192)
+    assert (alias["token_estimator"], alias["input_tokens"]) == ("o200k_base", audit["input_tokens"])
+    other = context.calculate_workflow_context_budget(messages, "gpt-5.4-team-deployment")
+    assert other["token_estimator_source"] != "catalog"
+
+
+def test_a_bounded_model_with_no_declared_tokenizer_keeps_the_byte_bound():
+    text = "The quarterly report lists revenue by region and product line. " * 200
+    messages = [{"role": "user", "content": text}]
+    audit = context.calculate_workflow_context_budget(messages, "claude-opus-5", provider="claude", output_tokens=4096)
+    assert (audit["token_estimator"], audit["token_estimator_source"]) == ("utf8_upper_bound", "none")
     assert audit["input_tokens"] >= len(text.encode("utf-8"))
 
 

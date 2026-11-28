@@ -1,8 +1,9 @@
 # test_tabular_relational_calculations.py
 """
 Functional tests for complete multi-file calculations and per-row lineage.
-Version: 0.261.478
+Version: 0.261.493
 Implemented in: 0.261.437; 0.261.446
+Schema departures located for the author; value kind and counts on a numeric finding, in: 0.261.493
 Planner-visible grammar, column rules and content-free failure locations added in: 0.261.443
 Namespace-separated derived rejoins and evaluator diagnostics added in: 0.261.444
 Checked allocation and date-peer cumulative operations added in: 0.261.446
@@ -873,7 +874,10 @@ SEMANTIC_FAULTS = {
         lambda spec: spec["steps"][3]["measures"][0].pop("column"), "relational_spec_invalid",
         {"check": "measure_column_required", "step_index": 3, "step_op": "aggregate"},
     ),
-    "schema_violation": (lambda spec: spec.pop("output"), "relational_spec_invalid", {"check": "schema"}),
+    "schema_violation": (
+        lambda spec: spec.pop("output"), "relational_spec_invalid",
+        {"check": "schema", "schema_keyword": "required", "schema_problem_count": 1},
+    ),
 }
 
 
@@ -883,6 +887,47 @@ def test_rejected_relational_specs_name_the_failed_check(name):
     with pytest.raises(TabularRelationalError) as error:
         normalize_relational_spec(mutate(change))
     assert (error.value.code, error.value.detail) == (code, detail)
+
+
+def test_a_program_that_fails_its_schema_says_where():
+    """0.261.493: the validator's finding was discarded and the author told only "schema"."""
+    spec = pipeline()
+    spec["steps"][1]["private_marker_property"] = 1
+    spec["steps"][3]["measures"][0]["operation"] = "private_marker_operation"
+    spec["datasets"][0].pop("alias")
+    with pytest.raises(TabularRelationalError) as error:
+        normalize_relational_spec(spec)
+    # The first departure, in program order, is the failure's own detail.
+    assert error.value.detail == {"check": "schema", "schema_keyword": "required", "schema_problem_count": 3}
+    assert native_error_diagnostics(error.value) == {
+        "native_check": "schema", "native_schema_keyword": "required", "native_schema_problem_count": 3,
+    }
+    assert error.value.feedback == {"schema_problem_count": 3, "schema_problems": [
+        {"argument_keyword": "required", "argument_path": "datasets_0", "missing_properties": ["alias"]},
+        {
+            "step_index": 1, "argument_keyword": "additionalproperties", "argument_path": "steps_1",
+            "argument_branch": spec["steps"][1]["op"], "extra_property_count": 1,
+            "allowed_properties": sorted(set(spec["steps"][1]) - {"private_marker_property"}
+                                         | {"normalization", "unmatched", "effective"}),
+        },
+        {
+            "step_index": 3, "argument_keyword": "enum", "argument_path": "steps_3_measures_0_operation",
+            "argument_branch": "aggregate",
+            "allowed_values": ["count", "sum", "min", "max", "distinct_count"],
+        },
+    ]}
+    # What the author wrote is its own text: counted or omitted, in the detail and in the feedback.
+    assert "private_marker" not in repr(error.value.detail) + repr(error.value.feedback)
+
+
+def test_a_program_with_many_schema_departures_returns_a_bounded_number():
+    spec = pipeline()
+    spec["steps"] = [{"id": f"s{index}", "op": "filter", "input": "sales"} for index in range(12)]
+    with pytest.raises(TabularRelationalError) as error:
+        normalize_relational_spec(spec)
+    assert error.value.detail["schema_problem_count"] == error.value.feedback["schema_problem_count"] == 12
+    assert [item["step_index"] for item in error.value.feedback["schema_problems"]] == list(range(8))
+    assert {item["missing_properties"][0] for item in error.value.feedback["schema_problems"]} == {"predicate"}
 
 
 def test_relational_failure_detail_never_contains_model_supplied_names():
@@ -980,14 +1025,14 @@ def test_runtime_transformation_failures_have_a_stable_code_and_a_step_location(
         "check": "step_evaluation", "step_op": "derive", "step_index": 1,
         "category": "numeric_operand", "role": "arithmetic_operand",
         "expected_type": "number", "field_index": 0, "expression_index": 2,
-        "value_index": 0, "left_category": "empty_text",
+        "value_index": 0, "left_category": "empty_text", "value_kind": "blank",
     }
     assert native_error_diagnostics(error.value) == {
         "native_check": "step_evaluation", "native_step_op": "derive", "native_step_index": 1,
         "native_category": "numeric_operand", "native_role": "arithmetic_operand",
         "expected_type": "number", "native_field_index": 0,
         "native_expression_index": 2, "native_value_index": 0,
-        "native_left_category": "empty_text",
+        "native_left_category": "empty_text", "native_value_kind": "blank",
     }
     spec = join_spec()
     spec["output"] = transform(field("rate", expression={
@@ -997,6 +1042,52 @@ def test_runtime_transformation_failures_have_a_stable_code_and_a_step_location(
         run(spec, {"sales": b"code,quantity\n007,0\n", "catalog": b"sku,price\n007,0.10\n"})
     assert error.value.code == "division_by_zero_is_not_allowed"
     assert error.value.detail == {"check": "output_evaluation", "step_op": "output"}
+
+
+AGGREGATE_VALUE_CASES = {
+    # (the measure column's cells, the first unreadable one's kind, how many are unreadable)
+    "one_stray_text_cell": (["4", "n/a", "6", "2"], "text", 1),
+    "a_column_of_text": (["low", "high", "low", "mid"], "text", 4),
+    "decimal_comma_cells": (["1,5", "2,25", "3"], "comma_decimal_text", 2),
+    "a_date_column": (["2026-01-05", "2026-01-06"], "date_text", 2),
+    "blank_cells": (["4", "", "6", ""], "blank", 2),
+}
+
+
+@pytest.mark.parametrize("name", sorted(AGGREGATE_VALUE_CASES))
+def test_an_aggregate_that_meets_an_unreadable_value_says_what_kind_and_how_many(name):
+    """0.261.493: the finding named the first value only, as "string".
+
+    One stray cell and a whole column of text need different corrections, so the finding now
+    carries the value's kind by the calculation's own reading and how many of the measure's
+    values cannot be read. No cell value is carried.
+    """
+    cells, kind, unreadable = AGGREGATE_VALUE_CASES[name]
+    spec = {
+        "version": "tabular-relate-v1",
+        "datasets": [{"alias": "sales", "document_id": "sales"}],
+        "steps": [{
+            "id": "totals", "op": "aggregate", "input": "sales", "by": [{"name": "region", "column": "sales.region"}],
+            "measures": [{"name": "total", "operation": "sum", "column": "sales.amount"}],
+        }],
+        "result": "totals",
+        "output": transform(field("total", expression={"source": "totals.total"}, value_type="number")),
+    }
+    rows = "".join(f'west,"{cell}"\n' for cell in cells).encode("utf-8")
+    with pytest.raises(TabularTransformationEvaluationError) as error:
+        run(spec, {"sales": b"region,amount\n" + rows})
+    detail = error.value.detail
+    assert (detail["category"], detail["role"], detail["step_op"]) == ("aggregate_value", "aggregate_measure", "aggregate")
+    assert (detail["value_kind"], detail["unreadable_value_count"], detail["value_count"]) == (
+        kind, unreadable, len(cells),
+    )
+    diagnostics = native_error_diagnostics(error.value)
+    assert (
+        diagnostics["native_value_kind"], diagnostics["native_unreadable_value_count"],
+        diagnostics["native_value_count"],
+    ) == (kind, unreadable, len(cells))
+    # The detail is what telemetry and the author's finding carry: no cell text is in it.
+    assert not any(cell and cell in repr(detail) for cell in cells if not cell.isdigit())
 
 
 if __name__ == "__main__":

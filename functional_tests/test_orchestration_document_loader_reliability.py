@@ -1,8 +1,9 @@
 # test_orchestration_document_loader_reliability.py
 """
 Functional tests for shared document-action loading and safe failure outcomes.
-Version: 0.261.443
+Version: 0.261.493
 Implemented in: 0.261.421
+A reply that calls no function returned once to the action's model, in: 0.261.493
 Source-aware reader admission added in: 0.261.437
 Content-free action result counts added in: 0.261.443
 
@@ -39,7 +40,8 @@ FAILURE_CASES = (
     ("loading", "action_initialization_failed", "action_initialization", 0, 0),
     ("identity", "document_reader_identity_mismatch", "action_initialization", 0, 0),
     ("read", "document_action_read_failed", "document_action_read", 1, 1),
-    ("results", "action_results_missing", "action_results", 1, 0),
+    # The reply that calls no function is returned once, so the model is asked twice.
+    ("results", "action_results_missing", "action_results", 2, 0),
 )
 
 
@@ -481,6 +483,66 @@ def test_every_supported_format_reaches_a_saved_cited_stored_chunk_answer(native
     assert len(harness.assistant_messages()) == len(extensions)
 
 
+def test_an_action_reply_without_a_function_call_is_corrected_by_its_model(native_http, monkeypatch):
+    """0.261.493: a reply that called no function ended the step (action_results_missing).
+
+    It is returned to the action's model once, as data. Here the model then reads the bound
+    document, and the step completes with that read as its result.
+    """
+    state = native_http
+    harness = state.runtime.harness
+    documents = harness.config.cosmos_user_documents_container
+    owner = importlib.import_module("functions_documents")
+    citations = importlib.import_module("functions_agent_document_citations")
+    monkeypatch.setattr(owner, "cosmos_user_documents_container", documents)
+    document = documents.read_item(LEFT, LEFT)
+    document.update({
+        "file_name": "selected.txt", "num_chunks": 1, "indexed_chunk_count_version": document["version"],
+    })
+    for field in ("archived_blob_path", "accessibility_metadata"):
+        document.pop(field, None)
+    documents.upsert_item(document)
+    chunk = {
+        "id": f"{LEFT}_1", "document_id": LEFT, "user_id": "owner", "file_name": document["file_name"],
+        "version": document["version"], "chunk_id": "1", "chunk_sequence": 1, "page_number": 1,
+        "chunk_text": "The stored source states that the review is complete.",
+    }
+    monkeypatch.setattr(owner, "_get_search_client", lambda **kwargs: SimpleNamespace(search=lambda **query: [chunk]))
+
+    async def reply(self, history, settings):
+        messages = [message.to_dict() for message in history.messages]
+        state.native_calls.append(deepcopy(messages))
+        results = [item.result for message in history.messages for item in message.items if hasattr(item, "result")]
+        if results:
+            value = json.loads(results[-1]) if isinstance(results[-1], str) else results[-1]
+            return [ChatMessageContent(role=AuthorRole.ASSISTANT, content=json.dumps({
+                "stored_text": value["chunks"][0]["chunk_text"], "citation": value["chunks"][0]["citation"],
+            }))]
+        if "action_function_call_missing" not in json.dumps(messages):
+            return [ChatMessageContent(role=AuthorRole.ASSISTANT, content="The review is complete.")]
+        return [ChatMessageContent(role=AuthorRole.ASSISTANT, items=[FunctionCallContent(
+            id="read-stored", name="document_search-retrieve_document_chunks",
+            arguments=json.dumps({"document_id": LEFT, "doc_scope": "personal"}),
+        )])]
+
+    monkeypatch.setattr(AzureChatCompletion, "_inner_get_chat_message_contents", reply)
+    marker = citations.annotate_document_search_payload({
+        "document": {"id": LEFT, "file_name": document["file_name"], "version": document["version"]},
+        "scope": "personal", "chunks": [chunk],
+    }, "retrieve_document_chunks")["chunks"][0]["citation"]
+    answer = f"The stored source states that the review is complete. {marker}"
+    response, events, plan, saved = submit_action_turn(
+        state, "Quote the selected file's stored text and cite it.", answer, "finding-then-read",
+        document_read_mode="content",
+    )
+    assert response.status_code == 200 and saved["status"] == "completed", (saved.get("failure"), state.failures)
+    # Asked, told it called nothing, read the document, reported what it read.
+    assert len(state.native_calls) == 3
+    assert json.loads(state.native_calls[1][-1]["content"])["finding"]["function_calls_started"] == 0
+    assert harness.assistant_messages()[-1]["content"] == answer
+    assert not any(event.get("type") == "error" for event in events)
+
+
 @pytest.mark.parametrize("debug", [False, True])
 @pytest.mark.parametrize("mode,code,stage,model_calls,report_reads", FAILURE_CASES)
 def test_owned_action_failure_survives_saved_steps_and_private_logging(
@@ -564,6 +626,26 @@ def test_owned_action_failure_survives_saved_steps_and_private_logging(
         assert (record.sc_function_calls_started, record.sc_function_results_captured) == (0, 0)
         assert record.sc_model_reply_count == 1 and record.sc_bound_document_count == 1
         assert record.sc_request_correction_count == 0 and record.sc_function_call_limit >= 1
+        # 0.261.493: the first such reply went back to the model as a finding, with its own reply.
+        assert record.sc_call_finding_count == 1
+        returned = [
+            item for item in caplog.records if getattr(item, "sc_message", None)
+            == "[ORCHESTRATION_ADAPTERS] Action reply without a function call returned to its author."
+        ]
+        assert len(returned) == 1 and returned[0].sc_validation_code == "action_function_call_missing"
+        assert returned[0].sc_run_id_hash == record.sc_run_id_hash and returned[0].sc_bound_document_count == 1
+        first, second = state.native_calls
+        assert len(second) == len(first) + 2 and second[:len(first)] == first
+        assert (second[-2]["role"], second[-1]["role"]) == ("assistant", "user")
+        finding = json.loads(second[-1]["content"])["finding"]
+        assert (finding["error_code"], finding["validation_rule"]) == (
+            "action_function_call_missing", "function_call_required",
+        )
+        assert finding["function_calls_started"] == 0 and finding["bound_document_count"] == 1
+        assert finding["available_functions"] and all(
+            name.startswith("document_search-") for name in finding["available_functions"]
+        )
+        assert PRIVATE not in json.dumps(finding)
     serialized = json.dumps({
         name: value for name, value in record.__dict__.items() if name.startswith("sc_")
     })

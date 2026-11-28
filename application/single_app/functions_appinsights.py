@@ -171,6 +171,15 @@ LOGGER_WORKFLOW_CODE_KEYS = frozenset({
     # How a request that did not fit was sized and refused: whether its response length was
     # requested or automatic, the budget's decision, and the estimator behind the counts.
     "outputreservation", "budgetdecision", "sizeestimator",
+    # Where the estimator's encoding came from (catalog, library or none), and the schema
+    # keyword a calculation program failed.
+    "sizeestimatorsource", "nativeschemakeyword",
+    # The saved state of the file a failed file step was producing.
+    "outputstate",
+    # What a cell held, by the calculation's own reading, where a number was expected.
+    "nativevaluekind",
+    # What the first and the previous corrected planning attempts were refused for.
+    "firstvalidationrule", "previousvalidationrule",
 })
 # Comma-separated output names from a capability contract; any other text is dropped.
 LOGGER_WORKFLOW_CODE_LIST_KEYS = frozenset({

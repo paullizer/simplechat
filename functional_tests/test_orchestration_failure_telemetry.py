@@ -1,7 +1,7 @@
 # test_orchestration_failure_telemetry.py
 """Specific orchestration failure rules reach telemetry without private plan text.
 
-Version: 0.261.490
+Version: 0.261.493
 Implemented in: 0.261.140
 Step, capability, format, and authority-reason codes covered in: 0.261.141
 Partial-input producer capability and step hash fields covered in: 0.261.191
@@ -11,6 +11,7 @@ Two shared planning corrections covered in: 0.261.422
 Recovery guard detail through the Warning logger covered in: 0.261.444
 Diagnostic rule and code fields added in 0.261.478 reaching telemetry covered in: 0.261.480
 Sizes of a request that did not fit reaching telemetry covered in: 0.261.490
+Code fields added in 0.261.493 reaching telemetry covered in: 0.261.493
 
 Uses real planner/validation/logging modules with offline provider replies.
 The synthetic invalid proposals test diagnostics, not the unknown historical
@@ -190,6 +191,28 @@ def test_the_rule_and_code_fields_added_for_troubleshooting_reach_telemetry(harn
     assert (properties["sc_limit_source"], properties["sc_limit_status"]) == ("compatibility_policy", "unknown")
     for key in ("failure_rule", "execution_rule", "error_code", "calculation_cause", "limit_source"):
         assert f"sc_{key}" not in telemetry._build_logger_extra("Failure.", {key: "PRIVATE text"})
+
+
+def test_the_code_fields_added_in_0_261_493_reach_telemetry(harness):
+    """A text field reaches telemetry only when its key is a listed code key and its value a code."""
+    telemetry = importlib.import_module("functions_appinsights")
+    fields = {
+        "size_estimator_source": "catalog", "native_schema_keyword": "additionalproperties",
+        "native_value_kind": "comma_decimal_text", "output_state": "retry_scheduled",
+        "first_validation_rule": "selected_documents_missing",
+        "previous_validation_rule": "tabular_requirement_required",
+        "validation_rule": "user_input_not_enabled", "validation_code": "action_function_call_missing",
+        "native_schema_problem_count": 3, "native_unreadable_value_count": 2, "native_value_count": 40,
+        "call_finding_count": 1, "corrected_attempt_count": 2, "distinct_refusal_count": 1,
+        "refusal_repeated": True, "render_attempted": False, "output_retryable": False,
+        "requirement_index": 0, "answer_quote_chars": 12, "candidate_chars": 900,
+    }
+    properties = telemetry._build_logger_extra("Record.", fields)
+    for key, value in fields.items():
+        assert properties[f"sc_{key}"] == value, key
+    # The same keys still drop anything that is not a closed code.
+    for key in ("size_estimator_source", "native_schema_keyword", "native_value_kind", "output_state"):
+        assert f"sc_{key}" not in telemetry._build_logger_extra("Record.", {key: "PRIVATE text"})
 
 
 def test_the_sizes_of_a_request_that_did_not_fit_reach_telemetry(harness):

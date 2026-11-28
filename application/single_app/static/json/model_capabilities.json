@@ -6,7 +6,7 @@
     "anthropic": {"api_type": "anthropic", "url_mode": "auto"},
     "google": {"api_type": "gemini", "url_mode": "auto"}
   },
-  "lastUpdated": "2026-11-05",
+  "lastUpdated": "2026-11-28",
   "description": "SimpleChat model capability, reasoning-policy, embedding-policy, and token-capacity catalog. Published chat/generation limits retain independently verified evidence and hosting profiles. Embedding input, dimension, and batch policies are separate operation contracts and never supply a chat-token budget.",
   "capabilityFields": {
     "processesText": "Accepts text input.",
@@ -27,6 +27,7 @@
     "generatesEmbeddings": "Produces embedding vectors. Runtime eligibility additionally requires validated embeddingPolicy metadata and a supported OpenAI-compatible operation; this is not chat or image generation."
   },
   "coverageNotes": [
+    "A 2026-11-28 audit declares the tokenizer of OpenAI text models that OpenAI's tiktoken model table resolves, by exact name or by name prefix. A model without a declared tokenizer is counted by an upper bound, never by another model's encoding. No capacity was changed by that audit.",
     "Schema version 4 adds sourced task-selection profiles reviewed on 2026-09-21. Other models expose capability-derived suitability rather than invented quality scores. This does not re-date or replace the independent token-capacity, image, embedding, or reasoning audits.",
     "The original audited OpenAI token-capacity subset starts at GPT-5.0. A separate 2026-10-20 audit adds the nine existing GPT-4o, GPT-4.1 and o-series text records without changing that original inventory.",
     "Claude coverage includes current, legacy, deprecated, and recently retired Claude models that fall within the requested two-year window.",
@@ -1537,6 +1538,17 @@
       "title": "Azure Chat Completions combined prompt and completion context",
       "url": "https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/chatgpt#manage-conversations",
       "verifiedAt": "2026-10-20"
+    },
+    {
+      "id": "openai-tiktoken-model-table",
+      "provider": "openai",
+      "title": "OpenAI tiktoken model-to-encoding table (tiktoken/model.py, v0.14.0)",
+      "url": "https://github.com/openai/tiktoken/blob/main/tiktoken/model.py",
+      "verifiedAt": "2026-11-28",
+      "notes": [
+        "Read as published for v0.14.0, whose changelog entry is: Support looking up more GPT-5 series models.",
+        "The table maps exact model names and name prefixes to encodings. It does not list each model or snapshot."
+      ]
     }
   ],
   "models": [
@@ -1579,7 +1591,8 @@
         "azure-spec-gpt-56",
         "azure-reasoning",
         "azure-openai-responses",
-        "azure-openai-v1"
+        "azure-openai-v1",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 1050000,
       "inputTokenLimit": 922000,
@@ -1589,6 +1602,7 @@
       ],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -1621,6 +1635,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "Native OpenAI generation ceilings include reasoning tokens as well as visible output. Do not reserve reasoning twice or treat visible response length as total generation."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5.6-sol is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -1756,7 +1778,8 @@
         "azure-reasoning",
         "openai-gpt5-6-terra",
         "azure-openai-responses",
-        "azure-openai-v1"
+        "azure-openai-v1",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 1050000,
       "inputTokenLimit": 922000,
@@ -1764,6 +1787,7 @@
       "verifiedAliases": [],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -1796,6 +1820,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "Native OpenAI generation ceilings include reasoning tokens as well as visible output. Do not reserve reasoning twice or treat visible response length as total generation."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5.6-terra is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -1931,7 +1963,8 @@
         "azure-reasoning",
         "openai-gpt5-6-luna",
         "azure-openai-responses",
-        "azure-openai-v1"
+        "azure-openai-v1",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 1050000,
       "inputTokenLimit": 922000,
@@ -1939,6 +1972,7 @@
       "verifiedAliases": [],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -1971,6 +2005,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "Native OpenAI generation ceilings include reasoning tokens as well as visible output. Do not reserve reasoning twice or treat visible response length as total generation."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5.6-luna is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -2106,7 +2148,8 @@
         "azure-spec-gpt-55",
         "azure-reasoning",
         "openai-gpt5-5",
-        "azure-openai-responses"
+        "azure-openai-responses",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 1050000,
       "inputTokenLimit": null,
@@ -2116,6 +2159,7 @@
       ],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -2148,6 +2192,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "Native OpenAI generation ceilings include reasoning tokens as well as visible output. Do not reserve reasoning twice or treat visible response length as total generation."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5.5 is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -2462,7 +2514,8 @@
         "azure-spec-gpt-54",
         "azure-reasoning",
         "openai-gpt5-4",
-        "azure-openai-responses"
+        "azure-openai-responses",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 1050000,
       "inputTokenLimit": null,
@@ -2472,6 +2525,7 @@
       ],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -2504,6 +2558,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "Native OpenAI generation ceilings include reasoning tokens as well as visible output. Do not reserve reasoning twice or treat visible response length as total generation."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5.4 is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -2613,7 +2675,8 @@
         "azure-spec-gpt-54",
         "azure-reasoning",
         "openai-gpt5-4-pro",
-        "azure-openai-responses"
+        "azure-openai-responses",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 1050000,
       "inputTokenLimit": null,
@@ -2621,6 +2684,7 @@
       "verifiedAliases": [],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -2653,6 +2717,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "Native OpenAI generation ceilings include reasoning tokens as well as visible output. Do not reserve reasoning twice or treat visible response length as total generation."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5.4-pro is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -2751,7 +2823,8 @@
         "azure-spec-gpt-54",
         "azure-reasoning",
         "openai-gpt5-4-mini",
-        "azure-openai-responses"
+        "azure-openai-responses",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 400000,
       "inputTokenLimit": 272000,
@@ -2759,6 +2832,7 @@
       "verifiedAliases": [],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -2791,6 +2865,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "Native OpenAI generation ceilings include reasoning tokens as well as visible output. Do not reserve reasoning twice or treat visible response length as total generation."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5.4-mini is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -2891,7 +2973,8 @@
         "azure-spec-gpt-54",
         "azure-reasoning",
         "openai-gpt5-4-nano",
-        "azure-openai-responses"
+        "azure-openai-responses",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 400000,
       "inputTokenLimit": 272000,
@@ -2899,6 +2982,7 @@
       "verifiedAliases": [],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -2931,6 +3015,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "Native OpenAI generation ceilings include reasoning tokens as well as visible output. Do not reserve reasoning twice or treat visible response length as total generation."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5.4-nano is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -3039,7 +3131,8 @@
         "openai-reasoning",
         "azure-spec-gpt-53",
         "azure-reasoning",
-        "openai-gpt5-3-codex"
+        "openai-gpt5-3-codex",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 400000,
       "inputTokenLimit": 272000,
@@ -3047,6 +3140,7 @@
       "verifiedAliases": [],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -3079,6 +3173,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "Native OpenAI generation ceilings include reasoning tokens as well as visible output. Do not reserve reasoning twice or treat visible response length as total generation."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5.3-codex is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -3172,7 +3274,8 @@
       "sourceIds": [
         "azure-openai-gpt5",
         "azure-spec-gpt-53",
-        "azure-reasoning"
+        "azure-reasoning",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": null,
       "inputTokenLimit": null,
@@ -3180,6 +3283,7 @@
       "verifiedAliases": [],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "unknown",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "hosting-dependent",
@@ -3212,6 +3316,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "No native OpenAI accounting is asserted for an Azure-only literal ID. The Azure profile records its verified generation semantics."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5.3-chat is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -3306,7 +3418,8 @@
         "openai-reasoning",
         "azure-spec-gpt-52",
         "azure-reasoning",
-        "openai-gpt5-2-codex"
+        "openai-gpt5-2-codex",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 400000,
       "inputTokenLimit": 272000,
@@ -3314,6 +3427,7 @@
       "verifiedAliases": [],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -3346,6 +3460,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "Native OpenAI generation ceilings include reasoning tokens as well as visible output. Do not reserve reasoning twice or treat visible response length as total generation."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5.2-codex is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -3442,7 +3564,8 @@
         "azure-spec-gpt-52",
         "azure-reasoning",
         "openai-gpt5-2",
-        "azure-openai-responses"
+        "azure-openai-responses",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 400000,
       "inputTokenLimit": null,
@@ -3450,6 +3573,7 @@
       "verifiedAliases": [],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -3482,6 +3606,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "Native OpenAI generation ceilings include reasoning tokens as well as visible output. Do not reserve reasoning twice or treat visible response length as total generation."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5.2 is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -3579,7 +3711,8 @@
       "sourceIds": [
         "azure-openai-gpt5",
         "azure-spec-gpt-52",
-        "azure-reasoning"
+        "azure-reasoning",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": null,
       "inputTokenLimit": null,
@@ -3587,6 +3720,7 @@
       "verifiedAliases": [],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "unknown",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "hosting-dependent",
@@ -3619,6 +3753,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "No native OpenAI accounting is asserted for an Azure-only literal ID. The Azure profile records its verified generation semantics."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5.2-chat is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -3705,7 +3847,8 @@
         "openai-reasoning",
         "azure-spec-gpt-51",
         "azure-reasoning",
-        "azure-openai-responses"
+        "azure-openai-responses",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 400000,
       "inputTokenLimit": null,
@@ -3713,6 +3856,7 @@
       "verifiedAliases": [],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -3745,6 +3889,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "Native OpenAI generation ceilings include reasoning tokens as well as visible output. Do not reserve reasoning twice or treat visible response length as total generation."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5.1 is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -3841,7 +3993,8 @@
       "sourceIds": [
         "azure-openai-gpt5",
         "azure-spec-gpt-51",
-        "azure-reasoning"
+        "azure-reasoning",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": null,
       "inputTokenLimit": null,
@@ -3849,6 +4002,7 @@
       "verifiedAliases": [],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "unknown",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "hosting-dependent",
@@ -3881,6 +4035,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "No native OpenAI accounting is asserted for an Azure-only literal ID. The Azure profile records its verified generation semantics."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5.1-chat is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -3975,7 +4137,8 @@
         "openai-reasoning",
         "azure-spec-gpt-51",
         "azure-reasoning",
-        "openai-gpt5-1-codex"
+        "openai-gpt5-1-codex",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 400000,
       "inputTokenLimit": null,
@@ -3983,6 +4146,7 @@
       "verifiedAliases": [],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -4015,6 +4179,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "Native OpenAI generation ceilings include reasoning tokens as well as visible output. Do not reserve reasoning twice or treat visible response length as total generation."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5.1-codex is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -4119,7 +4291,8 @@
         "openai-reasoning",
         "azure-spec-gpt-51",
         "azure-reasoning",
-        "openai-gpt5-1-codex-mini"
+        "openai-gpt5-1-codex-mini",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 400000,
       "inputTokenLimit": null,
@@ -4127,6 +4300,7 @@
       "verifiedAliases": [],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -4159,6 +4333,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "Native OpenAI generation ceilings include reasoning tokens as well as visible output. Do not reserve reasoning twice or treat visible response length as total generation."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5.1-codex-mini is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -4263,7 +4445,8 @@
         "openai-reasoning",
         "azure-spec-gpt-51",
         "azure-reasoning",
-        "openai-gpt5-1-codex-max"
+        "openai-gpt5-1-codex-max",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 400000,
       "inputTokenLimit": null,
@@ -4271,6 +4454,7 @@
       "verifiedAliases": [],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -4303,6 +4487,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "Native OpenAI generation ceilings include reasoning tokens as well as visible output. Do not reserve reasoning twice or treat visible response length as total generation."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5.1-codex-max is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -4408,7 +4600,8 @@
         "openai-reasoning",
         "azure-spec-gpt-5",
         "azure-reasoning",
-        "azure-openai-responses"
+        "azure-openai-responses",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 400000,
       "inputTokenLimit": 272000,
@@ -4416,6 +4609,7 @@
       "verifiedAliases": [],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -4448,6 +4642,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "Native OpenAI generation ceilings include reasoning tokens as well as visible output. Do not reserve reasoning twice or treat visible response length as total generation."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 lists gpt-5 for o200k_base in its table of model names (MODEL_TO_ENCODING). The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -4558,7 +4760,8 @@
         "azure-spec-gpt-5",
         "azure-reasoning",
         "openai-gpt5-pro",
-        "azure-openai-responses"
+        "azure-openai-responses",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 400000,
       "inputTokenLimit": null,
@@ -4566,6 +4769,7 @@
       "verifiedAliases": [],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -4598,6 +4802,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "Native OpenAI generation ceilings include reasoning tokens as well as visible output. Do not reserve reasoning twice or treat visible response length as total generation."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5-pro is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -4699,7 +4911,8 @@
         "openai-reasoning",
         "azure-spec-gpt-5",
         "azure-reasoning",
-        "openai-gpt5-codex"
+        "openai-gpt5-codex",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 400000,
       "inputTokenLimit": 272000,
@@ -4707,6 +4920,7 @@
       "verifiedAliases": [],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -4739,6 +4953,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "Native OpenAI generation ceilings include reasoning tokens as well as visible output. Do not reserve reasoning twice or treat visible response length as total generation."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5-codex is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -4842,7 +5064,8 @@
         "openai-reasoning",
         "azure-spec-gpt-5",
         "azure-reasoning",
-        "openai-gpt5-mini"
+        "openai-gpt5-mini",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 400000,
       "inputTokenLimit": 272000,
@@ -4850,6 +5073,7 @@
       "verifiedAliases": [],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -4882,6 +5106,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "Native OpenAI generation ceilings include reasoning tokens as well as visible output. Do not reserve reasoning twice or treat visible response length as total generation."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5-mini is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -4988,7 +5220,8 @@
         "azure-spec-gpt-5",
         "azure-reasoning",
         "openai-gpt5-nano",
-        "azure-openai-responses"
+        "azure-openai-responses",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 400000,
       "inputTokenLimit": 272000,
@@ -4996,6 +5229,7 @@
       "verifiedAliases": [],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -5028,6 +5262,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "Native OpenAI generation ceilings include reasoning tokens as well as visible output. Do not reserve reasoning twice or treat visible response length as total generation."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5-nano is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -5125,7 +5367,8 @@
       "sourceIds": [
         "azure-openai-gpt5",
         "azure-spec-gpt-5",
-        "azure-reasoning"
+        "azure-reasoning",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": null,
       "inputTokenLimit": null,
@@ -5133,6 +5376,7 @@
       "verifiedAliases": [],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "unknown",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "hosting-dependent",
@@ -5165,6 +5409,14 @@
           ],
           "verifiedAt": "2026-09-19",
           "note": "No native OpenAI accounting is asserted for an Azure-only literal ID. The Azure profile records its verified generation semantics."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-5 to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-5-chat is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -10412,7 +10664,8 @@
         "azure-token-gpt-4-and-gpt-4-turbo-models",
         "openai-token-accounting",
         "azure-token-accounting",
-        "azure-token-chat-context"
+        "azure-token-chat-context",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 128000,
       "inputTokenLimit": null,
@@ -10424,6 +10677,7 @@
       ],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -10457,6 +10711,14 @@
           ],
           "verifiedAt": "2026-10-20",
           "note": "Chat Completions max_completion_tokens and Responses max_output_tokens cap all generated tokens, including reasoning and non-visible formatting; visible text alone is not the allowance."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 lists gpt-4o for o200k_base in its table of model names (MODEL_TO_ENCODING). The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -10620,7 +10882,8 @@
         "azure-token-gpt-4-and-gpt-4-turbo-models",
         "openai-token-accounting",
         "azure-token-accounting",
-        "azure-token-chat-context"
+        "azure-token-chat-context",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 128000,
       "inputTokenLimit": null,
@@ -10630,6 +10893,7 @@
       ],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -10662,6 +10926,14 @@
           ],
           "verifiedAt": "2026-10-20",
           "note": "Chat Completions max_completion_tokens and Responses max_output_tokens cap all generated tokens, including reasoning and non-visible formatting; visible text alone is not the allowance."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-4o- to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-4o-mini is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -10790,7 +11062,8 @@
         "azure-token-gpt-41-series",
         "openai-token-accounting",
         "azure-token-accounting",
-        "azure-token-chat-context"
+        "azure-token-chat-context",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 1047576,
       "inputTokenLimit": null,
@@ -10800,6 +11073,7 @@
       ],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -10832,6 +11106,14 @@
           ],
           "verifiedAt": "2026-10-20",
           "note": "Chat Completions max_completion_tokens and Responses max_output_tokens cap all generated tokens, including reasoning and non-visible formatting; visible text alone is not the allowance."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 lists gpt-4.1 for o200k_base in its table of model names (MODEL_TO_ENCODING). The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -10951,7 +11233,8 @@
         "azure-token-gpt-41-series",
         "openai-token-accounting",
         "azure-token-accounting",
-        "azure-token-chat-context"
+        "azure-token-chat-context",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 1047576,
       "inputTokenLimit": null,
@@ -10961,6 +11244,7 @@
       ],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -10993,6 +11277,14 @@
           ],
           "verifiedAt": "2026-10-20",
           "note": "Chat Completions max_completion_tokens and Responses max_output_tokens cap all generated tokens, including reasoning and non-visible formatting; visible text alone is not the allowance."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-4.1- to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-4.1-mini is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -11117,7 +11409,8 @@
         "azure-token-gpt-41-series",
         "openai-token-accounting",
         "azure-token-accounting",
-        "azure-token-chat-context"
+        "azure-token-chat-context",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 1047576,
       "inputTokenLimit": null,
@@ -11127,6 +11420,7 @@
       ],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -11159,6 +11453,14 @@
           ],
           "verifiedAt": "2026-10-20",
           "note": "Chat Completions max_completion_tokens and Responses max_output_tokens cap all generated tokens, including reasoning and non-visible formatting; visible text alone is not the allowance."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with gpt-4.1- to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how gpt-4.1-nano is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -11280,7 +11582,8 @@
         "azure-token-o-series-models",
         "openai-token-accounting",
         "azure-token-accounting",
-        "azure-token-chat-context"
+        "azure-token-chat-context",
+        "openai-tiktoken-model-table"
       ],
       "reasoningPolicy": {
         "status": "supported",
@@ -11302,6 +11605,7 @@
       ],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -11334,6 +11638,14 @@
           ],
           "verifiedAt": "2026-10-20",
           "note": "Chat Completions max_completion_tokens and Responses max_output_tokens cap all generated tokens, including reasoning and non-visible formatting; visible text alone is not the allowance."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 lists o1 for o200k_base in its table of model names (MODEL_TO_ENCODING). The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -11468,7 +11780,8 @@
         "azure-token-o-series-models",
         "openai-token-accounting",
         "azure-token-accounting",
-        "azure-token-chat-context"
+        "azure-token-chat-context",
+        "openai-tiktoken-model-table"
       ],
       "contextWindow": 200000,
       "inputTokenLimit": null,
@@ -11478,6 +11791,7 @@
       ],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -11510,6 +11824,14 @@
           ],
           "verifiedAt": "2026-10-20",
           "note": "Chat Completions max_completion_tokens and Responses max_output_tokens cap all generated tokens, including reasoning and non-visible formatting; visible text alone is not the allowance."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 lists o3 for o200k_base in its table of model names (MODEL_TO_ENCODING). The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -11629,7 +11951,8 @@
         "azure-token-o-series-models",
         "openai-token-accounting",
         "azure-token-accounting",
-        "azure-token-chat-context"
+        "azure-token-chat-context",
+        "openai-tiktoken-model-table"
       ],
       "reasoningPolicy": {
         "status": "supported",
@@ -11651,6 +11974,7 @@
       ],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -11683,6 +12007,14 @@
           ],
           "verifiedAt": "2026-10-20",
           "note": "Chat Completions max_completion_tokens and Responses max_output_tokens cap all generated tokens, including reasoning and non-visible formatting; visible text alone is not the allowance."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 resolves every model name beginning with o3- to o200k_base (MODEL_PREFIX_TO_ENCODING), which is how o3-mini is counted. The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [
@@ -11802,7 +12134,8 @@
         "azure-token-o-series-models",
         "openai-token-accounting",
         "azure-token-accounting",
-        "azure-token-chat-context"
+        "azure-token-chat-context",
+        "openai-tiktoken-model-table"
       ],
       "reasoningPolicy": {
         "status": "supported",
@@ -11824,6 +12157,7 @@
       ],
       "tokenLimitsApplicability": "text",
       "outputTokenAccounting": "total_generation",
+      "tokenizer": "o200k_base",
       "tokenLimitEvidence": {
         "contextWindow": {
           "status": "verified",
@@ -11856,6 +12190,14 @@
           ],
           "verifiedAt": "2026-10-20",
           "note": "Chat Completions max_completion_tokens and Responses max_output_tokens cap all generated tokens, including reasoning and non-visible formatting; visible text alone is not the allowance."
+        },
+        "tokenizer": {
+          "status": "verified",
+          "sourceIds": [
+            "openai-tiktoken-model-table"
+          ],
+          "verifiedAt": "2026-11-28",
+          "note": "OpenAI's tiktoken v0.14.0 lists o4-mini for o200k_base in its table of model names (MODEL_TO_ENCODING). The encoding counts text; it is not a capacity."
         }
       },
       "tokenLimitProfiles": [

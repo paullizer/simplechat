@@ -217,6 +217,32 @@ def _log_step_over_budget(context, step, reason, elapsed_seconds, step_timeout):
     )
 
 
+def _log_render_step_failure(context, step, result, diagnostic, *, resumed):
+    """Why a file step did not produce its file: closed codes, never a message or a name.
+
+    A step that fails before its render attempt reports no attempt, so without this record its
+    outcome carried a failure code and nothing about the cause.
+    """
+    error = result.get('output_error') if type(result.get('output_error')) is dict else {}
+    outputs = result.get('outputs') if type(result.get('outputs')) is list else []
+    output = outputs[0] if outputs and type(outputs[0]) is dict else {}
+    failure = result.get('failure') if type(result.get('failure')) is dict else {}
+    diagnostic = diagnostic if type(diagnostic) is dict else {}
+    log_event(
+        f'{_LOG_PREFIX} A file step did not produce its file.',
+        level=logging.WARNING,
+        extra={
+            **_step_log_context(context, step), 'stage': 'render_file',
+            'status': result.get('status'), 'failure_code': failure.get('code'),
+            'output_code': error.get('code') or output.get('error_code'),
+            'output_retryable': error.get('retryable'), 'output_state': output.get('state'),
+            'output_format': step['arguments'].get('output_format'),
+            'render_attempted': diagnostic.get('attempted'), 'render_resumed': resumed,
+            'error_type': diagnostic.get('error_type'), 'execution_code': diagnostic.get('error_code'),
+        },
+    )
+
+
 def _log_render_attempt(context, step, facts):
     """Phase timings and check counts of one claimed file render, without identifiers."""
     log_event(
@@ -1258,6 +1284,9 @@ def _render_dependency_step(
             )
         else:
             result = rendering.resume_render_file(step, context, saved_result, **arguments)
+    diagnostic = result.pop('render_diagnostic', None) if type(result) is dict else None
+    if type(result) is dict and result.get('status') == STEP_STATUS_FAILED:
+        _log_render_step_failure(context, step, result, diagnostic, resumed=saved_result is not None)
     result = _validate_render_step_result(step, result)
     if result['status'] == STEP_STATUS_WAITING:
         wait = result['wait']

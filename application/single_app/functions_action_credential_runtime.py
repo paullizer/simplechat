@@ -158,7 +158,7 @@ def configure_action_credential_runtime():
     def normalize_question(spec, checkpoint_id):
         _schema, errors = validate_elicitation_schema(spec.get("requested_schema"))
         if errors or _schema is None:
-            raise UserInputError("input_invalid", 400)
+            raise UserInputError("input_invalid", 400, rule="requested_schema_invalid")
         return normalize_elicitation(spec, checkpoint_id, revision=1)
 
     def normalize_answer(question, response, context, user_id, conversation_id):

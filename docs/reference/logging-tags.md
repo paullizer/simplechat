@@ -891,6 +891,32 @@ Since **0.261.490**, `sc_validation_code` on
 paging or filter argument, the request was returned to the action's model once, and no source
 was read. That checkpoint is debug-gated.
 
+Since **0.261.493**:
+
+| Property | Meaning |
+| --- | --- |
+| `sc_size_estimator_source` | Where the request's encoding came from: `catalog` (the model catalog declares it), `library` (the installed tokenizer library resolves the model) or `none`. |
+| `sc_native_schema_keyword`, `sc_native_schema_problem_count` | On a calculation program that failed its schema (`sc_native_check` is `schema`): the schema keyword of the first departure, in program order, and how many departures there are. With `sc_native_step_index` and `sc_native_step_op` when it is in a step. |
+| `sc_native_value_kind` | What a cell held where a number was expected, by the calculation's own reading: `text`, `comma_decimal_text`, `date_text`, `blank`, `boolean`, `numeric_text`, `number` or `other`. |
+| `sc_native_unreadable_value_count`, `sc_native_value_count` | For an aggregate measure: how many of its values cannot be read as a number, and how many values it has. |
+| `sc_call_finding_count` | On `[ORCHESTRATION_ADAPTERS] Direct action execution failed.`: 1 when a reply that started no function call had already been returned to the action's model. |
+| `sc_corrected_attempt_count`, `sc_first_validation_rule`, `sc_previous_validation_rule`, `sc_refusal_repeated`, `sc_distinct_refusal_count` | On `[ORCHESTRATION_PLANNER] The request could not be planned.`: how many attempts were corrected, what the first and the previous were refused for, whether the final refusal is the previous one again, and how many distinct refusals there were. `sc_refusal_repeated` is also on each correction record. |
+| `sc_error_site` | Also on the planner's refusal and correction records: the file, function and line that raised the refusal. |
+| `sc_requirement_index`, `sc_requirement_count`, `sc_answer_quote_chars`, `sc_candidate_chars` | On a completeness check whose report quoted the answer wrongly (`sc_validation_rule` is `answer_quote_not_in_candidate` or `answer_quote_missing`): which judgment, of how many, and the lengths of its quote and of the answer. |
+| `sc_output_state`, `sc_output_retryable`, `sc_render_attempted`, `sc_render_resumed` | On `[ORCHESTRATION_EXECUTOR] A file step did not produce its file.`: the file's saved state, whether its failure is retryable, whether an output record existed when the step failed, and whether the step was resuming a saved file. With `sc_output_code`, `sc_error_type` and `sc_execution_code`. |
+
+New records in **0.261.493**:
+
+- `[ORCHESTRATION_ADAPTERS] Action reply without a function call returned to its author.`
+  (warning): `sc_validation_code` is `action_function_call_missing`, with the reply count, the
+  function-call limit and the number of functions offered and documents bound.
+- `[ORCHESTRATION_EXECUTOR] A file step did not produce its file.` (warning): see above.
+- `[USER_INPUT] An agent's question to the user could not be opened.` (warning):
+  `sc_validation_code` is the refusal's code (`input_not_interactive`, `input_invalid`,
+  `input_changed`, `input_closed`, `input_unavailable`) and `sc_validation_rule` the one
+  condition that refused it, with `sc_status_code`, `sc_tool_call_id_present` and
+  `sc_error_site`. No part of the question is recorded.
+
 Applicable conversation/run/step/turn hashes correlate these events. No failed
 reference string, source prose, raw workflow identifier, filename, or provider
 exception message is added.

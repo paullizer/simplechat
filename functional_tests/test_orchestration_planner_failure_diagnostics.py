@@ -1,8 +1,9 @@
 # test_orchestration_planner_failure_diagnostics.py
 """
 Functional regressions for planner selection constraints and safe diagnostics.
-Version: 0.261.446
+Version: 0.261.493
 Implemented in: 0.261.115
+Refusal records say how earlier attempts went and where the refusal was raised, in: 0.261.493
 Single orchestration contract updated in: 0.261.139
 Real-module diagnostic harness updated in: 0.261.439
 Protocol-draft retry coverage updated in: 0.261.446
@@ -113,6 +114,17 @@ def test_three_pinned_documents_allow_analyze_but_explicit_search_stays_required
     assert diagnostic["conversation_id_hash"] == hashlib.sha256(b"three-document-chat").hexdigest()
     assert diagnostic["turn_id_hash"] == hashlib.sha256(b"three-document-turn").hexdigest()
     assert "conversation_id" not in diagnostic and "turn_id" not in diagnostic
+    # 0.261.493: the final record says how the attempts before it went, and where it was raised.
+    assert diagnostic["attempt"] == 3 and diagnostic["corrected_attempt_count"] == 2
+    assert diagnostic["refusal_repeated"] is True and diagnostic["distinct_refusal_count"] == 1
+    assert diagnostic["first_validation_rule"] == diagnostic["previous_validation_rule"] == diagnostic["validation_rule"]
+    assert diagnostic["error_site"].startswith("functions_orchestration_") and ".py:" in diagnostic["error_site"]
+    corrections = [
+        details["extra"] for message, details in fixture.logs
+        if message == "[ORCHESTRATION_PLANNER] Asking the planner to correct a rejected plan."
+    ][-2:]
+    assert [item["refusal_repeated"] for item in corrections] == [False, True]
+    assert all(item["error_site"] == diagnostic["error_site"] for item in corrections)
 
 
 @pytest.mark.parametrize("reply,reason", [
@@ -128,6 +140,12 @@ def test_unusable_provider_output_is_not_a_successful_empty_plan(planner_case, r
         plan(fixture, client)
     assert failure_log(fixture)["reason"] == reason
     assert len(client.calls) == 3
+    if reason in ("unparseable_plan", "invalid_planner_response_kind"):
+        # The same unusable reply three times: two corrections, then the same refusal again.
+        final = failure_log(fixture)
+        assert (final["corrected_attempt_count"], final["refusal_repeated"]) == (2, True)
+        assert final["first_validation_rule"] == final["previous_validation_rule"] == reason
+        assert final["distinct_refusal_count"] == 1 and "error_site" not in final
     assert "PRIVATE" not in str(failure.value)
     assert "PRIVATE" not in json.dumps(fixture.logs)
 

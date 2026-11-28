@@ -32,6 +32,8 @@ class UserInputRequired(AgentInteractionRequired):
 
 
 class UserInputError(ValueError):
-    def __init__(self, code="input_unavailable", status_code=409):
-        self.code, self.status_code = code, status_code
+    """``rule`` names the one condition that refused the question; it is for logs, never shown."""
+
+    def __init__(self, code="input_unavailable", status_code=409, *, rule=None):
+        self.code, self.status_code, self.rule = code, status_code, rule
         super().__init__("This question could not be continued. Refresh the conversation.")

@@ -1,8 +1,9 @@
 # test_orchestration_harness_execution.py
 """Real-boundary headless V2 preparation, execution and publication regressions.
 
-Version: 0.261.481
+Version: 0.261.493
 Implemented in: 0.261.127
+Final event takes every model field a run hands it; a failed file step logs its cause, in: 0.261.493
 Delivery summary states rows only for files of records, and a readable size, in: 0.261.481
 Incomplete completion rejection added in: 0.261.445
 Prepared stop-only completion enforcement added in: 0.261.446
@@ -925,6 +926,50 @@ def test_source_free_composition_is_one_call_without_uploads(harness):
     assert "offline-fixture-not-a-credential" not in json.dumps(messages)
     published = json.dumps([*decoded_frames(progress), *decoded_frames(frames), *messages])
     assert '"result_outputs":' not in published
+
+
+def test_a_run_whose_answer_model_has_a_scope_ends_with_its_saved_answer(harness):
+    """0.261.493: the scope fields reached the final event as arguments it did not take.
+
+    The answer was saved and the run closed as completed, then the event raised TypeError and
+    the client was sent "failed, message not saved" for every run of a scoped model.
+    """
+    harness.create(replies=["Exact prepared answer."], final_response=input_binding("prepare"))
+    execution = harness.prepare()
+    execution.answer_model.model_scope_type = "group"
+    execution.answer_model.model_scope_id = "group-1"
+    done = decoded_frames(execution.execute(emit=lambda frame: None))[-1]
+    record = harness.read()
+    message = harness.assistant_messages()[0]
+    assert done["status"] == record["status"] == "completed"
+    assert done["message_saved"] is True and done["message_id"] == message["id"]
+    assert done["full_content"] == message["content"] == "Exact prepared answer."
+    assert done["model_scope_type"] == message["model_scope_type"] == "group"
+    assert done["model_scope_id"] == message["model_scope_id"] == "group-1"
+    assert done.get("failure") is None and "error" not in done
+
+
+def test_the_final_event_takes_every_model_field_a_run_can_hand_it():
+    """Model and reasoning metadata are spread into the final event, so each key is an argument."""
+    execution_module = importlib.import_module("functions_orchestration_execution")
+    events = importlib.import_module("functions_orchestration_events")
+    accepted = set(signature(events.build_run_done_event).parameters)
+    model = OrchestrationModel(
+        object(), "deployment", provider="aoai", endpoint_id="endpoint", model_id="model",
+        model_scope_type="group", model_scope_id="group-1", reasoning_effort="low",
+    )
+    saved_fields = {
+        *execution_module._MODEL_METADATA_FIELDS, *execution_module._REASONING_METADATA_FIELDS,
+        "reasoning_adjustments",
+    }
+    assert set(model.metadata()) == set(execution_module._MODEL_METADATA_FIELDS)
+    assert set(events.build_model_reasoning_metadata(model)) <= saved_fields
+    assert saved_fields <= accepted, sorted(saved_fields - accepted)
+    frame = events.build_run_done_event(
+        "conversation-1", **model.metadata(), **events.build_model_reasoning_metadata(model),
+    )
+    payload = json.loads(frame.partition("data:")[2])
+    assert {key: payload[key] for key in model.metadata()} == model.metadata()
 
 
 def test_delivery_summary_requires_a_current_committed_card():
@@ -3042,6 +3087,43 @@ def test_headless_catalog_revocation_during_compose_cannot_reach_render(harness,
     assert done["outputs"] == done["generated_artifacts"] == []
     assert len(harness.model_calls) == 1 and harness.blobs.file_uploads == 0
     assert saved["execution_lease"] is None and execution.lease.stopped.is_set()
+
+
+def test_a_file_step_that_fails_before_any_render_attempt_logs_why(harness, monkeypatch):
+    """0.261.493: such a step ended as step_failed and nothing recorded the cause.
+
+    A render attempt reports itself, but a step that fails before one had no record at all.
+    """
+    executor = importlib.import_module("functions_orchestration_executor")
+    rendering = importlib.import_module("functions_orchestration_rendering")
+    logged = []
+    log_event = executor.log_event
+
+    def record(message, **kwargs):
+        logged.append((message, kwargs.get("extra") or {}))
+        return log_event(message, **kwargs)
+
+    def unavailable(*args, **kwargs):
+        raise rendering.OutputError("output_binding_invalid")
+
+    monkeypatch.setattr(executor, "log_event", record)
+    monkeypatch.setattr(executor, "_context_rendering_service", unavailable)
+    harness.create([compose_step(), render_step("report", "md")], replies=["Complete retained report."])
+    execution = harness.prepare()
+    done = decoded_frames(execution.execute())[-1]
+    saved = harness.read()
+    assert done["status"] == saved["status"] == "failed"
+    reasons = [extra for message, extra in logged if message.endswith("A file step did not produce its file.")]
+    assert len(reasons) == 1
+    reason = reasons[0]
+    assert (reason["failure_code"], reason["output_code"]) == ("step_failed", "output_binding_invalid")
+    assert (reason["error_type"], reason["execution_code"]) == ("OutputError", "output_binding_invalid")
+    assert reason["render_attempted"] is False and reason["render_resumed"] is False
+    assert reason["output_format"] == "md" and reason["output_retryable"] is False
+    assert reason["capability_id"] == "render_file"
+    # The diagnostic is for that record only: it is not saved with the step or sent to the client.
+    assert "render_diagnostic" not in json.dumps(saved, default=str) + json.dumps(done, default=str)
+    assert harness.blobs.file_uploads == 0
 
 
 def test_headless_empty_export_catalog_does_not_disable_content_only_execution(harness, admitted_exports):

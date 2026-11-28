@@ -92,7 +92,11 @@ if any(name in sys.modules for name in ("config", "functions_settings", "functio
 
 def test_contract_vocabulary_matches_real_registry():
     registered = all_capability_ids()
-    assert set(WORKFLOW_CAPABILITY_IDS) == {identity for identity in registered if not identity.startswith("workflow_")}
+    # Workflow-control tools are not task tools, and workflows reach conversations through
+    # conversation_reference_inputs (CONVERSATION_REFERENCES_AND_HANDOFFS.md), not as
+    # required capabilities.
+    task_tools = {identity for identity in registered if not identity.startswith(("workflow_", "conversation_"))}
+    assert set(WORKFLOW_CAPABILITY_IDS) == task_tools
     assert WORKFLOW_VISUAL_REQUIREMENTS == VISUAL_KINDS
 
 

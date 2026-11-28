@@ -256,15 +256,28 @@ def environment(monkeypatch):
             CosmosResourceNotFoundError=CosmosResourceNotFoundError,
             CosmosAccessConditionFailedError=CosmosAccessConditionFailedError,
         )
-        azure.core, azure.cosmos, azure.identity, azure.keyvault = (
-            azure_core, azure_cosmos, azure_identity, azure_keyvault,
+        # functions_keyvault reaches model_endpoint_ca_bundles, which imports these.
+        azure_core_exceptions = module_stub(
+            "azure.core.exceptions",
+            AzureError=type("AzureError", (Exception,), {}),
+            ResourceExistsError=type("ResourceExistsError", (Exception,), {}),
+            ResourceNotFoundError=type("ResourceNotFoundError", (Exception,), {}),
         )
+        azure_storage = module_stub("azure.storage")
+        azure_storage_blob = module_stub("azure.storage.blob", ContentSettings=Mock())
+        azure.core, azure.cosmos, azure.identity, azure.keyvault, azure.storage = (
+            azure_core, azure_cosmos, azure_identity, azure_keyvault, azure_storage,
+        )
+        azure_core.exceptions = azure_core_exceptions
         azure_cosmos.exceptions = azure_exceptions
         azure_keyvault.secrets = azure_keyvault_secrets
+        azure_storage.blob = azure_storage_blob
         for name, module in {
-            "azure": azure, "azure.core": azure_core, "azure.cosmos": azure_cosmos,
+            "azure": azure, "azure.core": azure_core, "azure.core.exceptions": azure_core_exceptions,
+            "azure.cosmos": azure_cosmos,
             "azure.cosmos.exceptions": azure_exceptions, "azure.identity": azure_identity,
             "azure.keyvault": azure_keyvault, "azure.keyvault.secrets": azure_keyvault_secrets,
+            "azure.storage": azure_storage, "azure.storage.blob": azure_storage_blob,
         }.items():
             scoped.setitem(sys.modules, name, module)
 

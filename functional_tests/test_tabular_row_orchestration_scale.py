@@ -382,6 +382,8 @@ COMPACT_PROTOCOL_FUNCTIONS = {
 }
 COMPLETION_CHECKPOINT_FUNCTIONS = {
     '_safe_int',
+    '_build_tabular_semantic_checkpoint_context',
+    '_get_tabular_semantic_checkpoint_contract_hash',
     '_safe_float',
     '_settings_bool',
     '_settings_int',
@@ -549,6 +551,18 @@ def _load_query_descriptor_helper():
     return namespace['_build_tabular_generated_output_query_descriptor']
 
 
+def _set_request_intent_defaults(namespace):
+    """Give copied route code the real request-intent helpers it now calls.
+
+    No decision is bound in these tests, so nothing is withheld.
+    """
+    request_intent = importlib.import_module('functions_request_intent')
+    for name in (
+        'ACTION_BACKGROUND_RUN', 'ACTION_FILE_EXPORT', 'RequestIntentWithheldError', 'action_withheld',
+    ):
+        namespace.setdefault(name, getattr(request_intent, name))
+
+
 def _load_generated_output_router(route_dependencies):
     """Load maybe_create_tabular_generated_output with focused dependency stubs."""
     module_tree = ast.parse(CHAT_ROUTE.read_text(encoding='utf-8'), filename=str(CHAT_ROUTE))
@@ -568,6 +582,7 @@ def _load_generated_output_router(route_dependencies):
         and node.name == 'maybe_create_tabular_generated_output'
     )
     namespace = dict(route_dependencies)
+    _set_request_intent_defaults(namespace)
     namespace.setdefault('TABULAR_RUN_TASK_HIERARCHICAL_ANALYSIS', 'hierarchical_analysis')
     namespace.setdefault('TABULAR_RUN_TASK_COMBINED', 'combined')
     namespace.setdefault(
@@ -601,6 +616,7 @@ def _load_direct_source_queue_helpers(route_dependencies):
         raise AssertionError('Missing direct source-backed queue helper implementation')
 
     namespace = dict(route_dependencies)
+    _set_request_intent_defaults(namespace)
     namespace.setdefault('TABULAR_RUN_TASK_HIERARCHICAL_ANALYSIS', 'hierarchical_analysis')
     namespace.setdefault('TABULAR_RUN_TASK_COMBINED', 'combined')
     namespace.setdefault('TABULAR_EXTENSIONS', {'csv', 'xlsx', 'xls', 'xlsm'})
@@ -862,6 +878,8 @@ def _load_source_version_publication_helper(revalidated_descriptors):
         raise AssertionError('Missing source-version publication helper')
 
     namespace = {
+        # Publication re-authorizes the run first (covered by the authorization tests).
+        '_authorize_tabular_export_run_execution': lambda run, **kwargs: None,
         '_get_versioned_source_blob_client': lambda descriptor: revalidated_descriptors.append(
             dict(descriptor)
         ),
@@ -938,6 +956,9 @@ def _load_authorization_helper(conversation_owner, visible_public_ids=None, grou
         raise AssertionError('Missing export execution authorization helper')
 
     namespace = {
+        # Evidence and source-file availability are screening checks with their own tests.
+        'assert_evidence_available': lambda *args, **kwargs: None,
+        'assert_blob_available': lambda *args, **kwargs: None,
         'cosmos_conversations_container': ConversationContainer(),
         'CosmosResourceNotFoundError': CosmosResourceNotFoundError,
         'storage_account_personal_chat_container_name': 'personal-chat',
@@ -945,7 +966,7 @@ def _load_authorization_helper(conversation_owner, visible_public_ids=None, grou
         'storage_account_group_documents_container_name': 'group-documents',
         'storage_account_public_documents_container_name': 'public-documents',
         'assert_group_role': group_authorizer or (lambda *args, **kwargs: 'User'),
-        'get_user_visible_public_workspace_ids_from_settings': lambda user_id: list(visible_public_ids or []),
+        'get_public_source_workspace_ids': lambda user_id: list(visible_public_ids or []),
     }
     extracted_module = ast.Module(body=selected_nodes, type_ignores=[])
     exec(compile(extracted_module, str(EXPORT_MODULE), 'exec'), namespace)
@@ -1045,6 +1066,8 @@ def _load_fencing_helpers(current_run, replace_error=None):
         raise AssertionError('Missing lease fencing helpers')
 
     namespace = {
+        # Cancellation checks re-authorize the run (covered by the authorization tests).
+        '_authorize_tabular_export_run_execution': lambda run, **kwargs: None,
         'TABULAR_EXPORT_STATUS_CANCELED': 'canceled',
         'TABULAR_EXPORT_STATUS_RUNNING': 'running',
         'TabularExportCanceledError': TabularExportCanceledError,
@@ -1093,6 +1116,9 @@ def _load_retry_helpers():
         return dict(stored_run)
 
     namespace = {
+        # A storage outage is reported with its own failure code.
+        'BlobContainerUnavailableError': importlib.import_module('blob_container_readiness').BlobContainerUnavailableError,
+        'STORAGE_FAILURE_CODE': importlib.import_module('blob_container_readiness').STORAGE_FAILURE_CODE,
         'datetime': datetime,
         'timedelta': timedelta,
         'timezone': timezone,
@@ -1416,6 +1442,22 @@ def _load_idempotent_artifact_helper():
     message_container = MessageContainer()
     blob_service_client = BlobServiceClient()
     namespace = {
+        'hashlib': hashlib,
+        'generated_chat_artifact_address': importlib.import_module(
+            'functions_generated_artifact_sources',
+        ).generated_chat_artifact_address,
+        'write_blob_with_container_recovery': importlib.import_module(
+            'blob_container_readiness',
+        ).write_blob_with_container_recovery,
+        # This artifact has no generated source binding, so it is not staged for approval.
+        'has_generated_artifact_source': importlib.import_module(
+            'functions_generated_artifact_sources',
+        ).has_generated_artifact_source,
+        'analysis_artifact_metadata': importlib.import_module('functions_saved_analysis').analysis_artifact_metadata,
+        # Ordinary chat publication runs outside an orchestration file policy.
+        'require_generated_file_publication_allowed': importlib.import_module(
+            'functions_orchestration_execution_policy',
+        ).require_generated_file_publication_allowed,
         'Any': Any,
         'Dict': Dict,
         'Optional': Optional,
@@ -1752,6 +1794,7 @@ def _load_completion_checkpoint_helpers():
         'datetime': datetime,
         'hashlib': hashlib,
         'heapq': heapq,
+        'json': json,
         'logging': logging,
         'math': math,
         're': re,
@@ -3531,7 +3574,11 @@ def test_phase_five_completion_driven_checkpointing_commits_fast_batch_before_st
         batch_timeout_seconds,
         response_protocol,
         generation_plan,
+        transformation_spec,
+        semantic_validation_options,
+        semantic_checkpoint_context,
     ):
+        del transformation_spec, semantic_validation_options, semantic_checkpoint_context
         del chat_service, user_question, total_batches, source_file_name, selected_sheet
         del retry_attempts, run_id, expected_output_schema, batch_timeout_seconds
         del response_protocol, generation_plan
@@ -3718,7 +3765,11 @@ def test_phase_six_rolling_pool_replenishes_completed_slot_before_straggler():
         batch_timeout_seconds,
         response_protocol,
         generation_plan,
+        transformation_spec,
+        semantic_validation_options,
+        semantic_checkpoint_context,
     ):
+        del transformation_spec, semantic_validation_options, semantic_checkpoint_context
         del chat_service, user_question, total_batches, source_file_name, selected_sheet
         del retry_attempts, run_id, expected_output_schema, batch_timeout_seconds
         del response_protocol, generation_plan
@@ -3891,7 +3942,11 @@ def test_phase_six_rolling_pool_pauses_dispatch_at_checkpoint_high_water():
         batch_timeout_seconds,
         response_protocol,
         generation_plan,
+        transformation_spec,
+        semantic_validation_options,
+        semantic_checkpoint_context,
     ):
+        del transformation_spec, semantic_validation_options, semantic_checkpoint_context
         del chat_service, user_question, total_batches, source_file_name, selected_sheet
         del retry_attempts, run_id, expected_output_schema, batch_timeout_seconds
         del response_protocol, generation_plan
@@ -4098,7 +4153,11 @@ def test_phase_seven_independent_retry_keeps_healthy_batches_running():
         batch_timeout_seconds,
         response_protocol,
         generation_plan,
+        transformation_spec,
+        semantic_validation_options,
+        semantic_checkpoint_context,
     ):
+        del transformation_spec, semantic_validation_options, semantic_checkpoint_context
         del chat_service, user_question, total_batches, source_file_name, selected_sheet
         del retry_attempts, run_id, expected_output_schema, batch_timeout_seconds
         del response_protocol, generation_plan
@@ -5725,7 +5784,7 @@ def test_100000_row_hardening_contracts_revalidate_source_and_cancel_terminally(
     staging_source = ast.unparse(_get_function_node('_stage_tabular_generated_output_source'))
     replay_source = ast.unparse(_get_function_node('_iter_versioned_tabular_source_rows'))
     assert 'blob_etag' in source_version_source
-    assert 'Source CSV changed after the export was queued' in source_version_source
+    assert 'The tabular source changed after the computation was queued.' in source_version_source
     assert '_iter_versioned_tabular_source_rows' in staging_source
     assert 'MatchConditions.IfNotModified' in replay_source
     assert 'source_scan_row_count' in staging_source

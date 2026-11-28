@@ -143,6 +143,9 @@ def _build_shared_routes(environment, monkeypatch):
         "hydrate_action_identity_reference": lambda record, *args, **kwargs: record,
         "is_global_action_access_allowed": lambda user_id, record: True,
         "filter_governed_model_endpoints": services.governance.filter_governed_model_endpoints,
+        # These routes list model endpoints next to agents; these tests check the agent
+        # records, so the endpoint list passes through unchanged.
+        "sanitize_model_endpoints_for_frontend": lambda endpoints, *args, **kwargs: deepcopy(endpoints),
         "is_governance_access_allowed": lambda feature, user_id: feature not in services.denied_features,
         "editor_error_response": Mock(wraps=env.helper.editor_error_response),
         "validate_mcp_tool_pinning_for_save": importlib.import_module(
@@ -209,6 +212,7 @@ def _build_shared_routes(environment, monkeypatch):
         "create_group_agent_route", "update_group_agent_route",
         "_prepare_group_agent_payload", "get_global_agent_settings",
         "get_group_agent_settings", "get_global_agent_settings_for_users", "get_user_agents",
+        "build_combined_model_endpoints",
     }, namespace)
     app = Flask("shared_legacy_routes", root_path=env.app.root_path)
     app.config.update(TESTING=True, SECRET_KEY="synthetic-shared-route-session")

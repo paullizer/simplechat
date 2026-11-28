@@ -54,7 +54,7 @@ class EmbeddingConsumerTests(unittest.TestCase):
             "kernel_function": lambda *args, **kwargs: lambda func: func,
             "requests": Mock(),
         }
-        return load_nodes("semantic_kernel_plugins\\embedding_model_plugin.py", {"EmbeddingModelPlugin"}, namespace)
+        return load_nodes("semantic_kernel_plugins/embedding_model_plugin.py", {"EmbeddingModelPlugin"}, namespace)
 
     def test_default_action_uses_shared_runtime_without_requiring_a_legacy_key(self):
         namespace = self.plugin()

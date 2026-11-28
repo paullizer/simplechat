@@ -62,7 +62,7 @@ def runtime(monkeypatch):
     ))
     diagnostics = load_module(
         monkeypatch, "semantic_kernel_plugins.sql_connection_diagnostics",
-        r"semantic_kernel_plugins\sql_connection_diagnostics.py",
+        "semantic_kernel_plugins/sql_connection_diagnostics.py",
     )
     logger_module = load_module(monkeypatch, "functions_appinsights", "functions_appinsights.py")
     records = []
@@ -86,15 +86,15 @@ def runtime(monkeypatch):
     ))
     odbc = load_module(
         monkeypatch, "semantic_kernel_plugins.sql_odbc_utils",
-        r"semantic_kernel_plugins\sql_odbc_utils.py",
+        "semantic_kernel_plugins/sql_odbc_utils.py",
     )
     query = load_module(
         monkeypatch, "semantic_kernel_plugins.sql_query_plugin",
-        r"semantic_kernel_plugins\sql_query_plugin.py",
+        "semantic_kernel_plugins/sql_query_plugin.py",
     )
     schema = load_module(
         monkeypatch, "semantic_kernel_plugins.sql_schema_plugin",
-        r"semantic_kernel_plugins\sql_schema_plugin.py",
+        "semantic_kernel_plugins/sql_schema_plugin.py",
     )
     return SimpleNamespace(
         query=query.SQLQueryPlugin, schema=schema.SQLSchemaPlugin,

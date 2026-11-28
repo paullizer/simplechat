@@ -34,6 +34,7 @@ def check(condition, message):
 with offline_app_imports() as environment:
     import app as web
     import functions_settings as settings_owner
+    import functions_ui_pages as ui_pages
     import route_frontend_chats as route
     from functions_model_capabilities import resolve_model_reasoning_policy
 
@@ -160,6 +161,9 @@ with offline_app_imports() as environment:
             read_cache = Mock(return_value=None)
             write_cache = Mock()
             with ExitStack() as patches:
+                # This checks the classic page: whether this machine has built the V2 bundle
+                # must not decide whether /chats redirects to /v2/chat.
+                patches.enter_context(patch.object(ui_pages, "_probe_v2_bundle", return_value=False))
                 patches.enter_context(patch.object(web, "get_request_settings", return_value=settings))
                 patches.enter_context(patch.object(route, "get_settings", return_value=settings))
                 patches.enter_context(patch.object(route, "get_user_settings", return_value=user_document))
@@ -177,7 +181,7 @@ with offline_app_imports() as environment:
                 for warm in (False, True):
                     with patch.object(route, "_build_chat_model_catalog", wraps=route._build_chat_model_catalog) as build:
                         response = client.get("/chats")
-                    check(response.status_code == 200, name + ": /chats did not render successfully.")
+                    check(response.status_code == 200, name + f": /chats returned {response.status_code}, not 200 (Location: {response.headers.get('Location')}).")
                     check(build.call_count == (0 if warm else 1), name + ": wrong warm/cold catalog path.")
                     body = response.get_data(as_text=True)
                     check('id="chatbox"' in body and 'id="user-input"' in body, "V1 composer missing.")

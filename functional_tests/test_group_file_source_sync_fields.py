@@ -50,6 +50,7 @@ from test_support.group_file_source_harness import (  # noqa: F401  (environment
     environment,
     smb_payload,
 )
+from test_support.node_tools import esbuild_command
 
 
 V2_DIR = ROOT / "application" / "v2_ui"
@@ -89,7 +90,7 @@ def run_probe(request):
         request_file.write_text(json.dumps(request), encoding="utf-8")
         subprocess.run(
             [
-                "node", str(esbuild), str(PROBE_TS), "--bundle", "--platform=node", "--format=esm",
+                *esbuild_command(esbuild), str(PROBE_TS), "--bundle", "--platform=node", "--format=esm",
                 "--packages=external", "--define:import.meta.env={}", f"--outfile={bundle}",
                 "--log-level=error",
             ],

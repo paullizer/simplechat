@@ -39,6 +39,7 @@ from test_orchestration_workflow_proposal_routes import (  # noqa: F401
     stored_workflow,
 )
 from test_support.versioning import assert_app_version_at_least
+from test_support.node_tools import esbuild_command
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -67,7 +68,7 @@ def run_probe(drafts):
         request_file.write_text(json.dumps({"drafts": drafts}), encoding="utf-8")
         subprocess.run(
             [
-                "node", str(esbuild), str(PROBE_TS), "--bundle", "--platform=node", "--format=esm",
+                *esbuild_command(esbuild), str(PROBE_TS), "--bundle", "--platform=node", "--format=esm",
                 "--packages=external", "--define:import.meta.env={}", f"--outfile={bundle}",
                 "--log-level=error",
             ],

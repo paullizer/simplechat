@@ -13,6 +13,7 @@ from pathlib import Path
 import subprocess
 
 from test_support.versioning import assert_app_version_at_least
+from test_support.node_tools import esbuild_command
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -82,7 +83,7 @@ try {
         encoding="utf-8",
     )
     subprocess.run(
-        ["node", str(esbuild), str(entry), "--bundle", "--platform=node", "--format=esm",
+        [*esbuild_command(esbuild), str(entry), "--bundle", "--platform=node", "--format=esm",
          "--define:import.meta.env={}", f"--outfile={bundle}", "--log-level=error"],
         cwd=UI, check=True, capture_output=True, text=True,
     )

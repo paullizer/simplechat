@@ -10,6 +10,7 @@ import uuid
 from pathlib import Path
 
 import pytest
+from test_support.node_tools import esbuild_command
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,7 +21,7 @@ def test_native_personal_transport_and_fields():
     bundle = V2 / "node_modules" / f".cache-personal-file-sources-{uuid.uuid4().hex}.mjs"
     try:
         subprocess.run([
-            "node", str(V2 / "node_modules" / "esbuild" / "bin" / "esbuild"),
+            *esbuild_command(V2 / "node_modules" / "esbuild" / "bin" / "esbuild"),
             str(ROOT / "functional_tests" / "test_support" / "file_source_configuration_probe.ts"),
             "--bundle", "--platform=node", "--format=esm", "--packages=external",
             "--define:import.meta.env={}", f"--outfile={bundle}", "--log-level=error",

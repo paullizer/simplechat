@@ -42,6 +42,7 @@ from test_workflow_draft_save_parity import (  # noqa: E402
     GROUP_ID, OWNER_ID, SaveParityHarness, _task, _v2,
 )
 from test_support.orchestration_revisions import AtomicMemoryContainer  # noqa: E402
+from test_support.node_tools import esbuild_command  # noqa: E402
 
 
 RECIPIENT = "abcdef12-3456-7890-abcd-ef1234567890"
@@ -355,7 +356,7 @@ def test_real_typescript_contract_and_python_mirror_agree():
     }
     try:
         built = subprocess.run(
-            ["node", str(esbuild), str(Path(__file__).with_suffix(".ts")), "--bundle", "--platform=node",
+            [*esbuild_command(esbuild), str(Path(__file__).with_suffix(".ts")), "--bundle", "--platform=node",
              "--format=esm", "--packages=external", f"--outfile={bundle}", "--log-level=error"],
             cwd=ROOT, text=True, capture_output=True, timeout=60,
         )

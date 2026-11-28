@@ -155,12 +155,12 @@ def parsed_results():
         bundle = Path(temporary) / "citations.cjs"
         built = subprocess.run(
             [node, "-e", NODE_RUNNER, str(bundle)], cwd=V2,
-            capture_output=True, text=True, timeout=60,
+            capture_output=True, text=True, encoding="utf-8", timeout=60,
         )
         assert built.returncode == 0, built.stdout + built.stderr
         checked = subprocess.run(
             [node, str(bundle)], input=json.dumps(inputs), cwd=V2,
-            capture_output=True, text=True, timeout=60,
+            capture_output=True, text=True, encoding="utf-8", timeout=60,
         )
         assert checked.returncode == 0, checked.stdout + checked.stderr
     return classic, json.loads(checked.stdout)

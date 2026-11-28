@@ -18,6 +18,7 @@ import pytest
 
 from test_support.app_source import run_definitions
 from test_support.versioning import assert_app_version_at_least
+from test_support.node_tools import esbuild_command
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,7 +53,7 @@ def test_python_status_contract(case):
 def test_browser_predicates_match_python_contract(tmp_path):
     bundle = tmp_path / "document-status.cjs"
     subprocess.run([
-        "node", str(UI / "node_modules" / "esbuild" / "bin" / "esbuild"),
+        *esbuild_command(UI / "node_modules" / "esbuild" / "bin" / "esbuild"),
         str(UI / "src" / "lib" / "documentProcessingStatus.ts"),
         "--bundle", "--platform=node", "--format=cjs", f"--outfile={bundle}", "--log-level=error",
     ], check=True, capture_output=True, text=True)

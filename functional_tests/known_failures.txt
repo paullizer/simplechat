@@ -266,8 +266,6 @@ test_chat_toolbar_layout.py::test_chat_toolbar_mobile_tools_panel_is_wired      
 test_chat_upload_collaboration_workspace_sharing.py::test_collaboration_file_rendering_contract  # assertion: AssertionError: Missing workspace progress watcher: watchChatWorkspaceUploadDocument(data.workspace_document_i...
 test_chat_upload_personal_workspace_handoff.py::test_assigned_knowledge_context_is_separate_from_task_documents_contract  # assertion: AssertionError: Missing assigned knowledge top-12 context constant: ASSIGNED_KNOWLEDGE_CONTEXT_TOP_N = 12
 test_chat_upload_personal_workspace_handoff.py::test_conversation_delete_selectable_workspace_document_contract  # assertion: AssertionError: Missing later marker for selected workspace document deletion before archive-mode chat blob cl...
-test_chat_v1_page_bootstrap.py::test_v1_chat_bootstrap_real_runtime[page-False]   # assertion: AssertionError: OGGER] Decorating function for plugin -- {'function_name': 'count_rows_by_related_values', 'pl...
-test_chat_v1_page_bootstrap.py::test_v1_chat_bootstrap_real_runtime[page-True]    # assertion: AssertionError: OGGER] Decorating function for plugin -- {'function_name': 'count_rows_by_related_values', 'pl...
 test_chat_voice_turn_response.py::test_chat_request_and_completion_preserve_voice_response_contract  # assertion: AssertionError: Missing voice-turn response contract snippets: ['onDone: onVoiceResponseDone,']
 test_chat_workflow_results_admin.py::test_the_settings_writer_stores_only_a_real_true  # out of date: NameError: name 'TERMS_OF_USE_REVISION_KEY' is not defined
 test_chat_workflow_results_admin.py::test_the_v2_bootstrap_reports_the_gate_not_the_raw_setting  # assertion: assert "measure('cha...t_user_roles)" == 'is_chat_work...t_user_roles)'
@@ -1088,41 +1086,6 @@ test_image_generation_model_compatibility.py::test_image_generation_api_version 
 test_image_generation_model_compatibility.py::test_version_updated                # script-style check returned False
 test_increased_content_size.py::test_increased_content_size                       # assertion: Failed: async def functions are not natively supported.
 test_index_auto_login.py::test_index_redirects_unauthenticated_users_when_enabled  # assertion: AssertionError: Expected index route to begin with the auto-login guard
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[agent]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[blank_filename]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[case_and_whitespace]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[conflict]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[duplicate]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[generic_untitled]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[group_id]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[invalid_filename]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[invalid_records]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[legacy]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[literal_filename]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[literal_title]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[location]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[m365]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[malformed_record]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[markup]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[meaningful]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[normalized_record]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[null_records]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[one_missing]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[other_id]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[page_range]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[public_workspace_id]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[repeated]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[reported]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[same_name_two_documents]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[sheet]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[two_files]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[two_pages]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[url_filename]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[user_id]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_both_clients_use_only_matching_filenames_for_placeholder_labels[web]  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_fallbacks_stay_inert_and_preserve_surrounding_prose  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_multi_document_locations_and_ids_remain_paired  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
-test_inline_citation_filename_fallback.py::test_v2_raw_markers_use_only_exact_recorded_source_metadata  # out of date: TypeError: the JSON object must be str, bytes or bytearray, not NoneType"
 test_inline_schema_generation.py::test_inline_schema_generation                   # script-style check returned False
 test_inline_schema_generation_clean.py::test_inline_schema_generation             # script-style check returned False
 test_legacy_ppt_ole_extraction.py::test_legacy_ppt_metadata_from_sample           # script-style check returned False

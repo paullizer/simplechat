@@ -55,7 +55,7 @@ def test_network_guard_blocks_dns_before_external_io():
 
 @pytest.mark.parametrize("loader", [load_module, load_authoring_module])
 @pytest.mark.parametrize("relative_path", [
-    r"semantic_kernel_plugins\rocksdb_plugin.py",
+    "semantic_kernel_plugins/rocksdb_plugin.py",
     str(PurePosixPath("semantic_kernel_plugins", "rocksdb_plugin.py")),
 ])
 def test_shared_module_loaders_resolve_host_path_components(monkeypatch, loader, relative_path):
@@ -459,7 +459,7 @@ def test_managed_identity_login_rejection_does_not_retry_or_fall_back(runtime, m
 @pytest.mark.parametrize("client_id", [None, CLIENT_ID])
 def test_azure_sql_factory_uses_the_shared_identity_selector(runtime, monkeypatch, client_id):
     factory = load_module(
-        monkeypatch, "semantic_kernel_plugins.sql_plugin_factory", r"semantic_kernel_plugins\sql_plugin_factory.py",
+        monkeypatch, "semantic_kernel_plugins.sql_plugin_factory", "semantic_kernel_plugins/sql_plugin_factory.py",
     )
     kwargs = {} if client_id is None else {"managed_identity_client_id": client_id}
     schema, query = factory.SQLPluginFactory.create_azure_sql_plugins("db.example.test", "test-db", **kwargs)

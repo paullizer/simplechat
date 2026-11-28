@@ -259,13 +259,13 @@ def environment(monkeypatch):
             "functions_azure_endpoint_validation", "functions_icon_utils",
         ):
             modules.append(_load_module(stack, name))
-        rocks = _load_module(stack, "semantic_kernel_plugins.rocksdb_plugin", r"semantic_kernel_plugins\rocksdb_plugin.py")
+        rocks = _load_module(stack, "semantic_kernel_plugins.rocksdb_plugin", "semantic_kernel_plugins/rocksdb_plugin.py")
         modules.append(rocks)
         modules.append(_load_module(
             stack, "semantic_kernel_plugins.sql_connection_diagnostics",
-            r"semantic_kernel_plugins\sql_connection_diagnostics.py",
+            "semantic_kernel_plugins/sql_connection_diagnostics.py",
         ))
-        modules.append(_load_module(stack, "semantic_kernel_plugins.sql_odbc_utils", r"semantic_kernel_plugins\sql_odbc_utils.py"))
+        modules.append(_load_module(stack, "semantic_kernel_plugins.sql_odbc_utils", "semantic_kernel_plugins/sql_odbc_utils.py"))
         keyvault = _load_module(stack, "functions_keyvault")
         schema = _load_module(stack, "json_schema_validation")
         modules.extend([
@@ -275,7 +275,7 @@ def environment(monkeypatch):
             importlib.import_module("functions_legacy_action_management"),
         ])
         payload = _load_module(stack, "functions_agent_payload")
-        health = _load_module(stack, "semantic_kernel_plugins.plugin_health_checker", r"semantic_kernel_plugins\plugin_health_checker.py")
+        health = _load_module(stack, "semantic_kernel_plugins.plugin_health_checker", "semantic_kernel_plugins/plugin_health_checker.py")
         authoring = _load_module(stack, "functions_workspace_authoring")
         pinning = _load_module(stack, "functions_mcp_tool_pinning")
         # Execute the actual settings sanitizer without application startup.
@@ -1565,7 +1565,7 @@ def test_embedding_editor_root_fields_survive_and_drive_the_existing_runtime(env
                 )),
             ),
         }))
-        module = _load_module(stack, "semantic_kernel_plugins.embedding_model_plugin", r"semantic_kernel_plugins\embedding_model_plugin.py")
+        module = _load_module(stack, "semantic_kernel_plugins.embedding_model_plugin", "semantic_kernel_plugins/embedding_model_plugin.py")
         response = Mock()
         response.json.return_value = {"data": [{"embedding": [0.25, 0.75]}]}
         post = stack.enter_context(patch.object(module.requests, "post", return_value=response))

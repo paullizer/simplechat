@@ -49,12 +49,32 @@ def _has_plugin(module_name):
     return importlib.util.find_spec(module_name) is not None
 
 
+def _warm_tokenizer_cache():
+    """Download tiktoken's encodings once, before tests that block the network run.
+
+    The application counts tokens with tiktoken, which downloads each encoding the
+    first time it is used. Many tests forbid network access, so on a machine whose
+    cache is empty (a fresh CI runner, a new clone) they would fail on that download.
+    """
+    script = "import tiktoken; [tiktoken.get_encoding(name) for name in tiktoken.list_encoding_names()]"
+    try:
+        result = subprocess.run([sys.executable, "-c", script], cwd=REPO_ROOT, capture_output=True,
+                                text=True, encoding="utf-8", errors="replace", timeout=300)
+    except subprocess.TimeoutExpired:
+        print("Could not download tiktoken encodings (timed out); tests that count tokens may fail.")
+        return
+    if result.returncode != 0:
+        last = (result.stderr.strip().splitlines() or [""])[-1]
+        print(f"Could not download tiktoken encodings ({last}); tests that count tokens may fail.")
+
+
 def run_functional(extra, shard=None, jobs=None, file_timeout=FILE_TIMEOUT_SECONDS):
     files = sorted(FUNCTIONAL.glob("test_*.py"))
     if shard:
         index, count = shard
         files = files[index - 1::count]
     excluded = _known_failing_files()
+    _warm_tokenizer_cache()
     command = [sys.executable, "-m", "pytest", "-p", "no:cacheprovider", "-q", "-rfE", "--tb=short"]
     if _has_plugin("pytest_timeout"):
         command += ["--timeout", "300"]

@@ -251,7 +251,7 @@ def test_native_yamcs_sdk_keeps_reverse_proxy_authentication_and_tls(environment
             if name == "yamcs" or name.startswith("yamcs."):
                 sys.modules.pop(name)
         sdk = import_module("yamcs.client")
-        module = _load_module(stack, "semantic_kernel_plugins.yamcs_plugin", r"semantic_kernel_plugins\yamcs_plugin.py")
+        module = _load_module(stack, "semantic_kernel_plugins.yamcs_plugin", "semantic_kernel_plugins/yamcs_plugin.py")
         plugin = module.YamcsPlugin({
             "name": "proxy", "type": "yamcs", "endpoint": "https://yamcs.corp.internal:8090",
             "auth": {"type": "NoAuth"} if auth_method == "none" else {"type": "key", "key": "synthetic-api-key"},
@@ -302,7 +302,7 @@ def test_native_tableau_installs_guard_before_server_version_discovery(environme
         for name in list(sys.modules):
             if name == "tableauserverclient" or name.startswith("tableauserverclient."):
                 sys.modules.pop(name)
-        module = _load_module(stack, "semantic_kernel_plugins.tableau_plugin", r"semantic_kernel_plugins\tableau_plugin.py")
+        module = _load_module(stack, "semantic_kernel_plugins.tableau_plugin", "semantic_kernel_plugins/tableau_plugin.py")
         plugin = module.TableauPlugin({
             "name": "tableau", "type": "tableau", "endpoint": "https://tableau.corp.internal",
             "auth": {"type": "key", "identity": "operator", "key": "synthetic-pat"},

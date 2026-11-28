@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from test_support.versioning import assert_app_version_at_least
+from test_support.node_tools import esbuild_command
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,7 +33,7 @@ def search_bundle(tmp_path_factory):
         f"exports.modelSearchText = require({json.dumps(str(models))}).modelSearchText;\n"
     )
     subprocess.run([
-        "node", str(UI / "node_modules" / "esbuild" / "bin" / "esbuild"),
+        *esbuild_command(UI / "node_modules" / "esbuild" / "bin" / "esbuild"),
         "--bundle", "--platform=node", "--format=cjs", "--loader=tsx",
         "--define:import.meta.env={}", f"--outfile={bundle}", "--log-level=error",
     ], input=entry, check=True, capture_output=True, text=True)

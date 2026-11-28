@@ -632,7 +632,7 @@ def test_deleted_file_message_is_not_recreated_by_ready_checkpoint_replay(saved_
 
 
 def history_messages(services, messages):
-    history = load_functions("content_screening\\access.py", {"public_history_messages"}, {
+    history = load_functions("content_screening/access.py", {"public_history_messages"}, {
         "Mapping": Mapping, "deepcopy": deepcopy, "import_module": import_module,
         "_current_user_id": lambda user: user,
         "refresh_workspace_attachment": lambda message, user: message,

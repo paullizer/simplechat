@@ -97,6 +97,13 @@ def pytest_pyfunc_call(pyfuncitem):
 
 import os  # noqa: E402
 import sys  # noqa: E402
+import tempfile  # noqa: E402
+
+
+# app.py keeps Flask sessions in /app/flask_session, the container's path, unless
+# SESSION_FILE_DIR is set. Outside the container that folder cannot be created on
+# Linux or macOS, so tests that import app.py use a temporary folder instead.
+os.environ.setdefault("SESSION_FILE_DIR", os.path.join(tempfile.gettempdir(), "simplechat-test-sessions"))
 
 
 # Let a test file import application modules and test_support when it is run alone.

@@ -12,6 +12,7 @@ Node's explicit checks run identically under normal and optimized Python.
 import subprocess
 import tempfile
 from pathlib import Path
+from test_support.node_tools import esbuild_command
 
 ROOT = Path(__file__).resolve().parents[1]
 UI = ROOT / "application" / "v2_ui"
@@ -21,7 +22,7 @@ def test_floating_placement_bounds_and_visual_viewport_offsets():
     with tempfile.TemporaryDirectory(prefix="simplechat-picker-") as directory:
         bundle = Path(directory) / "placement.cjs"
         subprocess.run([
-            "node", str(UI / "node_modules" / "esbuild" / "bin" / "esbuild"),
+            *esbuild_command(UI / "node_modules" / "esbuild" / "bin" / "esbuild"),
             str(UI / "src" / "components" / "ui" / "dropdownPlacement.ts"),
             "--bundle", "--platform=node", "--format=cjs", f"--outfile={bundle}", "--log-level=error",
         ], check=True, capture_output=True, text=True)

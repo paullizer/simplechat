@@ -46,6 +46,7 @@ from test_orchestration_workflow_handoff_routes import (  # noqa: F401
 )
 from test_orchestration_workflow_proposal_routes import CONVERSATION, RUN, login
 from test_support.versioning import assert_app_version_at_least
+from test_support.node_tools import esbuild_command
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -68,7 +69,7 @@ def run_probe(probe, request):
         request_file.write_text(json.dumps(request), encoding="utf-8")
         built = subprocess.run(
             [
-                "node", str(esbuild), str(probe), "--bundle", "--platform=node", "--format=esm",
+                *esbuild_command(esbuild), str(probe), "--bundle", "--platform=node", "--format=esm",
                 "--packages=external", "--define:import.meta.env={}", f"--outfile={bundle}",
                 "--log-level=error",
             ],

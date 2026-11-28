@@ -29,7 +29,7 @@ def list_entries(text):
     """Return the set of entries (tests and files) named in the list's text."""
     sys.path.insert(0, str(REPO_ROOT / "functional_tests"))
     try:
-        from test_support.known_failures import parse_known_failures
+        from test_support.known_failures_list import parse_known_failures
     finally:
         sys.path.pop(0)
     tests, files = parse_known_failures(text)

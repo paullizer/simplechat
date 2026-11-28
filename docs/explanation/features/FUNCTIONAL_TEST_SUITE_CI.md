@@ -45,6 +45,7 @@ Dependencies: the pinned application and development requirements, Node 24 with
 
 - `.github/workflows/functional-test-suite.yml` (new)
 - `scripts/check_known_failures_shrink.py` (new)
+- `functional_tests/test_support/known_failures_list.py` (new: the list parser, without pytest, for the guard and the JavaScript job)
 - `scripts/run_tests.py` (per-file runner, sharding)
 - `functional_tests/test_functional_suite_ci_runner.py` (new)
 - `docs/contributing/testing.md` (runner options, Continuous integration section)

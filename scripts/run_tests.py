@@ -159,7 +159,7 @@ def _known_failing_files():
         return {}
     sys.path.insert(0, str(FUNCTIONAL))
     try:
-        from test_support.known_failures import LIST_FILE_NAME, parse_known_failures
+        from test_support.known_failures_list import LIST_FILE_NAME, parse_known_failures
     finally:
         sys.path.pop(0)
     list_path = FUNCTIONAL / LIST_FILE_NAME

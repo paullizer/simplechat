@@ -33,27 +33,8 @@ from pathlib import Path
 
 import pytest
 
-
-LIST_FILE_NAME = "known_failures.txt"
-IGNORE_ENV = "SIMPLECHAT_IGNORE_KNOWN_FAILURES"
-
-
-def parse_known_failures(text):
-    """Return ``({test_id: reason}, {file_name: reason})`` from the list's text."""
-    tests, files = {}, {}
-    for number, raw_line in enumerate(text.splitlines(), start=1):
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        entry, _, reason = line.partition("#")
-        entry, reason = entry.strip(), reason.strip()
-        if not reason:
-            raise ValueError(f"{LIST_FILE_NAME} line {number}: '{entry}' needs a '# reason'.")
-        target = tests if "::" in entry else files
-        if entry in target:
-            raise ValueError(f"{LIST_FILE_NAME} line {number}: '{entry}' is listed twice.")
-        target[entry] = reason
-    return tests, files
+# The list parser has no pytest dependency, so scripts can read the list without pytest.
+from test_support.known_failures_list import IGNORE_ENV, LIST_FILE_NAME, parse_known_failures  # noqa: F401
 
 
 class KnownFailuresPlugin:

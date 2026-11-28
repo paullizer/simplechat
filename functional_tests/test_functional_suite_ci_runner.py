@@ -5,13 +5,15 @@ Functional test for the full-suite CI workflow and its helpers.
 Version: 0.261.493
 Implemented in: 0.261.493
 
-This test ensures that the known-failures list guard reports only new entries,
+This test ensures that the known-failures list guard reports only new entries and,
+like the JavaScript runner, reads the list without pytest,
 that run_tests.py splits the functional files into disjoint shards that cover
 every file, and that the workflow runs every shard, the JavaScript suite and the
 guard on pull requests.
 """
 
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 
@@ -48,6 +50,21 @@ def test_guard_passes_against_the_checked_in_list():
     guard = _load("check_known_failures_shrink")
     text = (REPO_ROOT / guard.LIST_PATH).read_text(encoding="utf-8")
     assert guard.new_entries(text, text) == []
+
+
+def test_list_readers_work_without_pytest():
+    """The guard and the JavaScript runner run in CI jobs that do not install pytest."""
+    print("Testing that the list readers do not need pytest...")
+    script = (
+        "import sys; sys.modules['pytest'] = None; sys.path.insert(0, 'scripts'); "
+        "import check_known_failures_shrink as guard, run_tests; "
+        "text = open(guard.REPO_ROOT / guard.LIST_PATH, encoding='utf-8').read(); "
+        "assert guard.new_entries(text, text) == []; "
+        "assert isinstance(run_tests._known_failing_files(), dict)"
+    )
+    result = subprocess.run([sys.executable, "-c", script], cwd=REPO_ROOT, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    print("Test passed!")
 
 
 def test_shards_are_disjoint_and_cover_every_file():

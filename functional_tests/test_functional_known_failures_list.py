@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from test_support.known_failures import LIST_FILE_NAME, parse_known_failures  # noqa: E402
+from test_support.known_failures_list import LIST_FILE_NAME, parse_known_failures  # noqa: E402
 
 
 TEST_DIR = Path(__file__).resolve().parent
@@ -51,6 +51,7 @@ def test_plugin_expects_listed_failures_and_rejects_fixed_ones():
         (work / "test_support").mkdir()
         (work / "test_support" / "__init__.py").write_text("", encoding="utf-8")
         shutil.copy(PLUGIN, work / "test_support" / "known_failures.py")
+        shutil.copy(PLUGIN.with_name("known_failures_list.py"), work / "test_support" / "known_failures_list.py")
         (work / "conftest.py").write_text(
             "import os, sys\n"
             "sys.path.insert(0, os.path.dirname(__file__))\n"

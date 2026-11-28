@@ -547,7 +547,7 @@ def test_the_planner_receives_the_server_truth_and_the_deliverables_contract(har
     assert next(step for step in plan["steps"] if step["step_id"] == "capitals")["delivers"] == ["capitals_csv"]
 
 
-def test_an_invalid_deliverables_plan_gets_exactly_one_repair_call(harness):
+def test_an_invalid_deliverables_plan_gets_a_repair_call(harness):
     kind, plan = _plan_request(
         harness, [_csv_plan(render_format="xlsx"), _csv_plan()], message="create a csv of states and capitals",
     )
@@ -558,8 +558,9 @@ def test_an_invalid_deliverables_plan_gets_exactly_one_repair_call(harness):
     assert "output_format must match" in repair[-1]["content"]
     assert plan["token_usage"] == {"prompt_tokens": 14, "completion_tokens": 6, "total_tokens": 20}
 
+    # The first proposal and both shared corrections (PLAN_REPAIR_ATTEMPTS) are invalid.
     with pytest.raises(harness.planner.PlannerError) as failure:
-        _plan_request(harness, [_csv_plan(render_format="xlsx"), _csv_plan(render_format="xlsx")])
+        _plan_request(harness, [_csv_plan(render_format="xlsx")] * (harness.planner.PLAN_REPAIR_ATTEMPTS + 1))
     assert failure.value.reason == "invalid_plan_or_missing_requirement"
     assert failure.value.message == harness.planner.DELIVERABLES_FAILURE_MESSAGE
 

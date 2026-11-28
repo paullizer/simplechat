@@ -13,6 +13,7 @@ service is initialized, and image HTTP requests use the real SDK with MockTransp
 """
 
 import copy
+import importlib
 import json
 import logging
 import math
@@ -293,6 +294,20 @@ class ImageChatRouteIntegrationTests(ImageRuntimeTestCase):
         load_route_functions(
             "functions_simplechat_operations.py", ("derive_conversation_title_from_message",), namespace,
         )
+        # chat_api decides each turn's side-effect permissions with the real request-intent
+        # helpers (stdlib only), which route_backend_chats imports by name.
+        request_intent = importlib.import_module("functions_request_intent")
+        namespace.update({
+            name: getattr(request_intent, name) for name in (
+                "ACTION_BACKGROUND_RUN", "ACTION_FILE_EXPORT", "RequestIntentWithheldError",
+                "action_withheld", "bind_request_intent", "build_request_intent_system_message",
+                "build_request_intent_withheld_notice", "current_request_intent",
+                "normalize_request_intent_check_mode", "resolve_request_intent",
+            )
+        })
+        namespace["_shared_nominate_side_effect_actions"] = importlib.import_module(
+            "functions_tabular_orchestration",
+        ).nominate_side_effect_actions
         load_route_functions("route_backend_chats.py", (
             "_metadata_item_count", "_safe_metadata_int", "_normalize_capability_action",
             "_normalize_conversation_task_document_ids", "_normalize_chat_document_context_contract",
@@ -306,6 +321,7 @@ class ImageChatRouteIntegrationTests(ImageRuntimeTestCase):
             "_get_user_message_image_context", "_resolve_generated_image_bytes",
             "_normalize_default_reasoning_effort", "_apply_admin_new_conversation_model_defaults",
             "_save_chat_user_metadata",
+            "_normalize_suppressed_side_effects", "resolve_chat_turn_request_intent",
             "build_web_search_query_text", "chat_api",
         ), namespace, strip_decorators=False)
         return namespace

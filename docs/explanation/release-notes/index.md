@@ -384,6 +384,12 @@ This page includes the latest release notes inline. Older release sections are s
     *   Fixing out-of-date test stubs and two Windows-only test bugs brought 178 listed tests back to passing, so they are off `functional_tests/known_failures.txt`.
     *   (Ref: `functional-test-suite.yml`, `run_tests.py`, `check_known_failures_shrink.py`, `test_functional_suite_ci_runner.py`, `test_support/node_tools.py`, `functional_tests/conftest.py`, `FUNCTIONAL_TEST_SUITE_CI.md`, `docs/contributing/testing.md`)
 
+#### Bug Fixes
+
+*   **Generated-File Exports Import Without Azure Again**
+    *   `functions_request_intent` imported Application Insights logging at load time, and generated-file exports now import it, so exports could no longer load without the Azure monitoring package, against the module's tested contract. Logging is now resolved on first use, as in `functions_analysis_deliverables`.
+    *   (Ref: `functions_request_intent.py`, `test_generated_file_office_bridge.py`, `test_generated_file_structured_renderers.py`, `test_orchestration_output_lifecycle.py`)
+
 ### **(v0.261.493)**
 
 #### Bug Fixes

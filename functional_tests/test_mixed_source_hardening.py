@@ -572,6 +572,8 @@ def test_export_cancellation_rolls_back_queued_and_uploaded_artifacts():
     deleted_artifacts = []
     uploaded_artifacts = []
 
+    request_intent = importlib.import_module("functions_request_intent")
+
     def load_export_helpers(queue_background):
         return _load_route_helpers(
             {"_has_generated_tabular_csv_output", "maybe_create_generated_file_output"},
@@ -598,6 +600,10 @@ def test_export_cancellation_rolls_back_queued_and_uploaded_artifacts():
                 },
                 "_safe_int": lambda value: int(value or 0),
                 "get_settings": lambda: {},
+                # No request-intent decision is bound, so the export is not withheld.
+                "action_withheld": request_intent.action_withheld,
+                "ACTION_FILE_EXPORT": request_intent.ACTION_FILE_EXPORT,
+                "RequestIntentWithheldError": request_intent.RequestIntentWithheldError,
                 "_build_tabular_generated_output_row_batches": lambda rows, settings=None: [rows],
                 "should_queue_tabular_generated_output_background": lambda *args: queue_background,
                 "queue_tabular_generated_output_run": lambda **kwargs: (

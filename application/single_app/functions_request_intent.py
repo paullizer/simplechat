@@ -20,7 +20,19 @@ import time
 from contextlib import contextmanager
 from contextvars import ContextVar
 
-from functions_appinsights import log_event
+
+def log_event(*args, **kwargs):
+    """Log through functions_appinsights, imported on first use.
+
+    Import exception: functions_generated_file_exports imports this module and must
+    import without Azure packages or a network bootstrap, while functions_appinsights
+    imports azure.monitor at module load.
+    """
+    try:
+        from functions_appinsights import log_event as _log_event_impl
+    except ImportError:
+        return None
+    return _log_event_impl(*args, **kwargs)
 
 
 REQUEST_INTENT_CONTRACT_VERSION = "request-intent-v1"

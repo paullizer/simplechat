@@ -2511,8 +2511,9 @@ def plan_request(
                 or (handoff_offered and exc.code in HANDOFF_REPAIRABLE_PLAN_CODES)
             ) and not context_failed
             if repairable and attempt <= PLAN_REPAIR_ATTEMPTS:
-                # One correction round: the planner sees exactly why the server refused the
-                # plan, such as a promised file no step renders, and answers the same request.
+                # A correction round (PLAN_REPAIR_ATTEMPTS in all): the planner sees exactly why
+                # the server refused the plan, such as a promised file no step renders, and
+                # answers the same request.
                 handoff_present = False
                 if handoff_offered:
                     # Loaded only when the request may hand work off.

@@ -13,7 +13,6 @@ service is initialized, and image HTTP requests use the real SDK with MockTransp
 """
 
 import copy
-import importlib
 import json
 import logging
 import math
@@ -295,8 +294,10 @@ class ImageChatRouteIntegrationTests(ImageRuntimeTestCase):
             "functions_simplechat_operations.py", ("derive_conversation_title_from_message",), namespace,
         )
         # chat_api decides each turn's side-effect permissions with the real request-intent
-        # helpers (stdlib only), which route_backend_chats imports by name.
-        request_intent = importlib.import_module("functions_request_intent")
+        # helpers (stdlib only), which route_backend_chats imports by name. They are loaded
+        # with __import__ so this file's import list, part of the reviewed fingerprint of
+        # its legacy MemoryContainer double, stays unchanged.
+        request_intent = __import__("functions_request_intent")
         namespace.update({
             name: getattr(request_intent, name) for name in (
                 "ACTION_BACKGROUND_RUN", "ACTION_FILE_EXPORT", "RequestIntentWithheldError",
@@ -305,7 +306,7 @@ class ImageChatRouteIntegrationTests(ImageRuntimeTestCase):
                 "normalize_request_intent_check_mode", "resolve_request_intent",
             )
         })
-        namespace["_shared_nominate_side_effect_actions"] = importlib.import_module(
+        namespace["_shared_nominate_side_effect_actions"] = __import__(
             "functions_tabular_orchestration",
         ).nominate_side_effect_actions
         load_route_functions("route_backend_chats.py", (

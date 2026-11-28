@@ -1,7 +1,7 @@
 # run_tests.py
 """Run the SimpleChat test suites with the flags each one needs.
 
-Version: 0.261.491
+Version: 0.261.492
 Implemented in: 0.261.491
 
 Usage (from the repository root, with the app and dev requirements installed):
@@ -11,11 +11,14 @@ Usage (from the repository root, with the app and dev requirements installed):
     python scripts/run_tests.py ui                # Playwright UI tests (needs a running app)
     python scripts/run_tests.py all               # functional + js
     python scripts/run_tests.py functional -- -k image   # extra arguments go to pytest
+    python scripts/run_tests.py functional --shard 2/8   # the second of eight CI shards
 
-Functional tests run in parallel, one test file per worker, when pytest-xdist
-is installed (``pip install pytest-xdist``); otherwise they run serially. A
-per-test timeout is applied when pytest-timeout is installed. Neither plugin is
-required.
+Functional tests run one test file per pytest process, several files at a time
+(``--jobs``, default: the number of CPUs), so each file starts with clean
+modules and a file that hangs is stopped after ``--file-timeout`` seconds.
+``--shard K/N`` runs every Nth file starting with the Kth, which is how CI
+splits the suite across jobs. Arguments after ``--`` go to each pytest process.
+A per-test timeout is applied when pytest-timeout is installed; it is optional.
 
 The JavaScript tests use Node's built-in runner. Several load the v2 UI's
 TypeScript sources, so ``npm ci`` in ``application/v2_ui`` must have been run
@@ -30,6 +33,7 @@ import importlib.util
 import os
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 
@@ -38,23 +42,63 @@ FUNCTIONAL = REPO_ROOT / "functional_tests"
 UI = REPO_ROOT / "ui_tests"
 V2_UI = REPO_ROOT / "application" / "v2_ui"
 JS_TEST_TIMEOUT_SECONDS = 300
+FILE_TIMEOUT_SECONDS = 900
 
 
 def _has_plugin(module_name):
     return importlib.util.find_spec(module_name) is not None
 
 
-def run_functional(extra):
-    command = [sys.executable, "-m", "pytest", str(FUNCTIONAL), "-p", "no:cacheprovider", "-q"]
-    if _has_plugin("xdist"):
-        command += ["-n", "auto", "--dist", "loadfile"]
-    else:
-        print("pytest-xdist is not installed; running serially (this takes a long time).")
+def run_functional(extra, shard=None, jobs=None, file_timeout=FILE_TIMEOUT_SECONDS):
+    files = sorted(FUNCTIONAL.glob("test_*.py"))
+    if shard:
+        index, count = shard
+        files = files[index - 1::count]
+    excluded = _known_failing_files()
+    command = [sys.executable, "-m", "pytest", "-p", "no:cacheprovider", "-q", "-rfE", "--tb=short"]
     if _has_plugin("pytest_timeout"):
         command += ["--timeout", "300"]
     command += extra
-    print("+", " ".join(command), flush=True)
-    return subprocess.call(command, cwd=REPO_ROOT)
+    print("+", " ".join(command), "<file>", f"({len(files)} files)", flush=True)
+
+    def run_file(path):
+        try:
+            result = subprocess.run(
+                [*command, str(path)], cwd=REPO_ROOT, capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=file_timeout,
+            )
+            return path, result.returncode, result.stdout + result.stderr
+        except subprocess.TimeoutExpired:
+            return path, "timeout", f"stopped after {file_timeout}s"
+
+    to_run = []
+    for path in files:
+        if path.name in excluded:
+            # A listed file is not collected (see known_failures.txt); naming it on the
+            # command line would collect it anyway.
+            print(f"skip   {path.relative_to(REPO_ROOT)} (known failure: {excluded[path.name]})", flush=True)
+        else:
+            to_run.append(path)
+
+    failed = []
+    with ThreadPoolExecutor(max_workers=jobs or os.cpu_count() or 1) as pool:
+        for future in as_completed([pool.submit(run_file, path) for path in to_run]):
+            path, code, output = future.result()
+            lines = output.strip().splitlines()
+            summary = lines[-1] if lines else ""
+            # 5 means pytest collected nothing, e.g. a file whose tests all skip at import.
+            if code in (0, 5):
+                print(f"ok     {path.relative_to(REPO_ROOT)}  {summary}", flush=True)
+                continue
+            failed.append(path)
+            status = "TIMEOUT" if code == "timeout" else "FAILED"
+            print(f"{status:6} {path.relative_to(REPO_ROOT)}", flush=True)
+            print(output[-6000:], flush=True)
+    print(f"{len(to_run) - len(failed)} of {len(to_run)} Python test files passed, "
+          f"{len(files) - len(to_run)} skipped as known failures, {len(failed)} failed.")
+    for path in sorted(failed):
+        print(f"  failed: {path.relative_to(REPO_ROOT)}")
+    return 1 if failed else 0
 
 
 def run_ui(extra):
@@ -110,7 +154,7 @@ def run_js(extra):
 
 
 def _known_failing_files():
-    """Whole-file entries of functional_tests/known_failures.txt (used for JavaScript tests)."""
+    """Whole-file entries of functional_tests/known_failures.txt."""
     if os.environ.get("SIMPLECHAT_IGNORE_KNOWN_FAILURES", "").strip().lower() in ("1", "true", "yes"):
         return {}
     sys.path.insert(0, str(FUNCTIONAL))
@@ -124,9 +168,24 @@ def _known_failing_files():
     return parse_known_failures(list_path.read_text(encoding="utf-8"))[1]
 
 
+def _shard(value):
+    index, _, count = value.partition("/")
+    try:
+        index, count = int(index), int(count)
+    except ValueError:
+        raise argparse.ArgumentTypeError("use K/N, for example 2/8")
+    if not 1 <= index <= count:
+        raise argparse.ArgumentTypeError("K must be between 1 and N")
+    return index, count
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Run the SimpleChat test suites.")
     parser.add_argument("suite", choices=("functional", "js", "ui", "all"))
+    parser.add_argument("--shard", type=_shard, help="K/N: run only the Kth of N slices of the functional files")
+    parser.add_argument("--jobs", type=int, help="functional test files run at once (default: CPU count)")
+    parser.add_argument("--file-timeout", type=int, default=FILE_TIMEOUT_SECONDS,
+                        help="seconds before a functional test file is stopped")
     parser.add_argument("extra", nargs=argparse.REMAINDER, help="arguments after -- go to pytest or node")
     args = parser.parse_args(argv)
     extra = args.extra[1:] if args.extra[:1] == ["--"] else args.extra
@@ -134,13 +193,14 @@ def main(argv=None):
     sys.stdout.reconfigure(errors="replace")
 
     os.environ.setdefault("PYTHONDONTWRITEBYTECODE", "1")
+    functional_options = {"shard": args.shard, "jobs": args.jobs, "file_timeout": args.file_timeout}
     if args.suite == "functional":
-        return run_functional(extra)
+        return run_functional(extra, **functional_options)
     if args.suite == "js":
         return run_js(extra)
     if args.suite == "ui":
         return run_ui(extra)
-    functional_code = run_functional(extra)
+    functional_code = run_functional(extra, **functional_options)
     js_code = run_js([])
     return functional_code or js_code
 

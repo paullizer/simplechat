@@ -2,6 +2,16 @@
 
 For feature-focused and fix-focused drill-downs by version, see [Features by Version](https://github.com/microsoft/simplechat/tree/main/docs/explanation/features) and [Fixes by Version](https://github.com/microsoft/simplechat/tree/main/docs/explanation/fixes).
 
+### **(v0.261.492)**
+
+#### New Features
+
+*   **Every Functional Test Runs on Every Pull Request**
+    *   A new workflow runs all Python functional tests, split across eight jobs, and all JavaScript functional tests on pull requests to Development and main. Before, only about 155 of roughly 2,000 Python test files ran in CI.
+    *   `functional_tests/known_failures.txt` can now only shrink: the workflow fails a pull request that adds an entry, so a change that breaks a test has to fix it.
+    *   `scripts/run_tests.py functional` runs each test file in its own pytest process, several at once, without pytest-xdist. `--shard K/N` runs one slice of the files, `--jobs` sets how many run at once, and a file that hangs is stopped after `--file-timeout` seconds.
+    *   (Ref: `functional-test-suite.yml`, `run_tests.py`, `check_known_failures_shrink.py`, `test_functional_suite_ci_runner.py`, `FUNCTIONAL_TEST_SUITE_CI.md`, `docs/contributing/testing.md`)
+
 ### **(v0.261.491)**
 
 #### Bug Fixes

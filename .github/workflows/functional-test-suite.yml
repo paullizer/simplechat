@@ -1,0 +1,83 @@
+# functional-test-suite.yml
+# Runs every functional test (Python and JavaScript) on each pull request, with the
+# known-failures list active, and keeps that list from growing.
+# See docs/contributing/testing.md.
+name: Functional test suite
+
+on:
+  pull_request:
+    branches: [Development, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: functional-test-suite-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  known-failures-shrink-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12.12'
+      - name: Require that the known-failures list only shrinks
+        if: github.event_name == 'pull_request'
+        run: >-
+          python scripts/check_known_failures_shrink.py
+          --base "origin/${{ github.event.pull_request.base.ref }}"
+
+  python:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    name: python (shard ${{ matrix.shard }} of 8)
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12.12'
+          cache: pip
+          cache-dependency-path: |
+            application/single_app/requirements.txt
+            application/single_app/requirements.lock.txt
+            requirements-dev.txt
+            docker-customization/requirements-build.lock.txt
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.22.3'
+      - name: Install pinned application and test dependencies
+        run: |
+          python -m pip install pip==26.0.1
+          python -m pip install --build-constraint docker-customization/requirements-build.lock.txt -r application/single_app/requirements.txt -r requirements-dev.txt
+      - name: Restore frontend dependencies used by some Python tests
+        run: npm --prefix application/v2_ui ci --no-audit --no-fund
+      - name: Run functional tests
+        run: python scripts/run_tests.py functional --shard ${{ matrix.shard }}/8
+
+  javascript:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12.12'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.22.3'
+      - name: Restore frontend dependencies
+        run: npm --prefix application/v2_ui ci --no-audit --no-fund
+      - name: Run JavaScript functional tests
+        run: python scripts/run_tests.py js

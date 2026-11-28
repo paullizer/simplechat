@@ -39,15 +39,11 @@ npm run build
 sources. `npm run build` writes the v2 SPA to
 `application/single_app/static/v2/` (git-ignored), which the v2 UI tests serve.
 
-Two pytest plugins are optional but strongly recommended for the full functional
-suite, which has tens of thousands of tests:
-
-```powershell
-pip install pytest-xdist pytest-timeout
-```
-
-They are not in `requirements-dev.txt` because new dependencies go through the
-[dependency pinning](dependency-pinning.md) review.
+pytest-timeout is optional. When it is installed, `scripts/run_tests.py` stops
+any single test after five minutes; without it, only a whole file that runs
+longer than `--file-timeout` is stopped. It is not in `requirements-dev.txt`
+because new dependencies go through the [dependency pinning](dependency-pinning.md)
+review.
 
 ## Running the suites
 
@@ -70,9 +66,31 @@ python scripts/run_tests.py all
 ```
 
 Arguments after `--` go to pytest (or to Node for `js`), for example
-`python scripts/run_tests.py functional -- -k image_edit`. With pytest-xdist
-installed the functional suite runs one test file per worker
-(`-n auto --dist loadfile`).
+`python scripts/run_tests.py functional -- -k image_edit`. The functional suite
+runs each test file in its own pytest process, as many at once as the machine
+has CPUs (`--jobs N` to change that), and stops a file after 15 minutes
+(`--file-timeout SECONDS`). `--shard K/N` runs only every Nth file, starting with
+the Kth, which is how CI splits the suite:
+
+```powershell
+python scripts/run_tests.py functional --shard 1/8
+```
+
+## Continuous integration
+
+The **Functional test suite** workflow
+(`.github/workflows/functional-test-suite.yml`) runs on every pull request to
+Development and main:
+
+* all Python functional tests, split across eight jobs with
+  `run_tests.py functional --shard K/8`;
+* all JavaScript functional tests with `run_tests.py js`;
+* `scripts/check_known_failures_shrink.py`, which fails the pull request when
+  `functional_tests/known_failures.txt` gains an entry.
+
+A pull request that breaks a test therefore has to fix it in the same change,
+and one that fixes a listed test has to remove its line. A fork gets the same
+checks by enabling GitHub Actions.
 
 Running a single file still works both ways:
 
@@ -144,12 +162,10 @@ test_hangs.py                       # whole file: hangs without Cosmos DB
 * JavaScript tests are listed as whole files (`test_example.mjs  # reason`).
   `scripts/run_tests.py js` reports a listed file that fails as `xfail` and one
   that passes as `XPASS`, which fails the run.
-* Never list a test that a GitHub workflow runs, directly or through
-  `scripts/check_cosmos_response_boundaries.py --run-contracts`. A listed test
-  that passes in CI would fail the build as `XPASS(strict)`, and a listed file
-  would silently stop running there.
-* Never add a test to the list to get a change merged. Fix the test, or fix the
-  application if the test found a real problem.
+* Entries are never added. A change that breaks a test fixes the test, or the
+  application if the test found a real problem. The Functional test suite
+  workflow fails a pull request that adds an entry
+  (`scripts/check_known_failures_shrink.py`).
 
 To work on the listed tests, run them normally with
 `SIMPLECHAT_IGNORE_KNOWN_FAILURES=1`. The UI suite has no such list.

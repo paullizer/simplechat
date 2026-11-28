@@ -901,6 +901,9 @@ def _load_checkpoint_resume_helper(blobs, uploads):
         '_download_json_blob': lambda path: blobs[path],
         '_upload_json_blob': upload_json_blob,
         '_validate_tabular_output_checkpoint_metadata': lambda *args, **kwargs: None,
+        # Each window re-authorizes the run before it reads the source (covered by the
+        # authorization tests); here the run is the caller's own.
+        '_authorize_tabular_export_run_execution': lambda run, **kwargs: None,
         '_build_generated_batch_summary': lambda rows: {'row_count': len(rows)},
         '_build_tabular_output_checkpoint_metadata': lambda run, metadata: dict(metadata),
         '_load_input_batch_rows': (

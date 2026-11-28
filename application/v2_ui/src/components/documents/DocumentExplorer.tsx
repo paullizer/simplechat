@@ -20,7 +20,7 @@ import {
 } from '../../lib/chatContextHandoff';
 import { groupScope, publicScope, PERSONAL_SCOPE } from '../../lib/chatContext';
 import { isScreeningBusy } from '../../lib/contentScreening';
-import { ApiError } from '../../lib/apiClient';
+import { ApiError, isAppSessionError } from '../../lib/apiClient';
 import type { CollaborationReceipt, DocumentCollaborationAdapter } from '../../lib/documentCollaboration';
 import { documentUploadUnavailable, sharedOperationRefusal } from '../../lib/documentAccessCopy';
 import { uploadInBatches } from '../../lib/documentUploadQueue';
@@ -249,6 +249,10 @@ function ScopedDocumentExplorer({
     const [loading, setLoading] = useState(true);
     const [task, setTask] = useState<ExplorerTask | null>(null);
     const [uploading, setUploading] = useState(false);
+    // A queued upload can be stopped between its requests, and what it never sent can be sent later.
+    const uploadStopRequested = useRef(false);
+    const [uploadStopping, setUploadStopping] = useState(false);
+    const [unsentUpload, setUnsentUpload] = useState<{ scopeKey: string; files: File[] } | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [dialog, setDialog] = useState<ActiveDialog>(null);
     const [sidebarError, setSidebarError] = useState<string | null>(null);
@@ -311,6 +315,18 @@ function ScopedDocumentExplorer({
     }, [onBusyChange]);
 
     useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
+
+    // The upload queue lives in this page: closing or reloading the tab would end it part-way.
+    useEffect(() => {
+        if (!uploading) return;
+        const onBeforeUnload = (event: BeforeUnloadEvent) => {
+            event.preventDefault();
+            // Browsers ignore custom text now, but returnValue still triggers the prompt.
+            event.returnValue = '';
+        };
+        window.addEventListener('beforeunload', onBeforeUnload);
+        return () => window.removeEventListener('beforeunload', onBeforeUnload);
+    }, [uploading]);
 
     useEffect(() => {
         mounted.current = true;
@@ -421,6 +437,7 @@ function ScopedDocumentExplorer({
         if (mounted.current) {
             setTask(null);
             setUploading(false);
+            setUploadStopping(false);
             onBusyChange?.(false);
         }
     }, [onBusyChange]);
@@ -1038,23 +1055,36 @@ function ScopedDocumentExplorer({
             if (!(await agreementGate.confirm(workspaceAgreementScope(captured.adapter.scope), accepted))
                 || !operationTargets('upload')) return;
             const label = 'Uploading files';
+            const queueScopeKey = scopeKey;
             beginMutation('Uploading files', accepted.length);
+            uploadStopRequested.current = false;
+            setUnsentUpload(null);
             setUploading(true);
             try {
                 // A large selection goes as a queue of small requests rather than one request that
                 // has to carry every file, so the selection can be far larger than a request can.
                 const response = await uploadInBatches(accepted, (batch) => captured.adapter.upload(batch), {
-                    shouldContinue: () => mounted.current,
+                    shouldContinue: () => mounted.current && !uploadStopRequested.current,
+                    // A session that has ended refuses every request before reading a file.
+                    refusesEveryRequest: isAppSessionError,
                     onProgress: ({ completed, total }) => {
                         if (mounted.current) setTask({ label, completed, total });
                     },
                 });
                 if (!mounted.current) return;
                 const errors = [...validationErrors, ...response.errors.map((message) => ({ document_id: 'Upload', message }))];
-                if (response.unsent > 0) {
+                if (response.unconfirmed.length > 0) {
                     errors.push({
                         document_id: 'Upload',
-                        message: `${response.unsent} ${response.unsent === 1 ? 'file was' : 'files were'} not sent because the upload stopped early. Refresh, then upload the ones that are missing.`,
+                        message: `${response.unconfirmed.length} ${response.unconfirmed.length === 1 ? 'file' : 'files'} named above had no confirmed result and may or may not have been stored. The rest of the upload carried on. Refresh and check the list before uploading them again.`,
+                    });
+                }
+                if (response.unsent > 0) {
+                    // Nothing was sent for these, so they can be sent later without duplicating anything.
+                    setUnsentUpload({ scopeKey: queueScopeKey, files: response.remaining });
+                    errors.push({
+                        document_id: 'Upload',
+                        message: `${response.unsent} ${response.unsent === 1 ? 'file was' : 'files were'} not sent because ${uploadStopRequested.current ? 'you stopped the upload' : `the upload stopped early (${response.stopped ?? 'no reason given'})`}. Use Send remaining files to continue.`,
                     });
                 } else if (!response.stopped && response.document_ids.length + errors.length < files.length) {
                     errors.push({ document_id: 'Upload', message: 'The server did not confirm every file. Refresh before retrying.' });
@@ -1074,8 +1104,13 @@ function ScopedDocumentExplorer({
                 finishMutation();
             }
         },
-        [operationTargets, beginMutation, finishMutation, refreshAll, settings, allowedExtensions, agreementGate.confirm],
+        [operationTargets, beginMutation, finishMutation, refreshAll, settings, allowedExtensions, agreementGate.confirm, scopeKey],
     );
+
+    const onStopUpload = useCallback(() => {
+        uploadStopRequested.current = true;
+        setUploadStopping(true);
+    }, []);
 
     const onDownload = useCallback(async (targets: WorkspaceDocument[]) => {
         const captured = operationTargets('download', targets);
@@ -1612,6 +1647,22 @@ function ScopedDocumentExplorer({
                 {feedback.errors.length ? <OperationFeedback {...feedback} documents={documents} />
                     : <p ref={legacyStatusRef} tabIndex={-1} role="status" className="text-xs text-text-3">{feedback.title}</p>}
             </div> : null}
+            {unsentUpload && unsentUpload.scopeKey === scopeKey && !task && !dialog ? (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-edge bg-surface-1 px-3 py-2 text-sm text-text-2" role="status">
+                    <span>
+                        {unsentUpload.files.length} {unsentUpload.files.length === 1 ? 'file is' : 'files are'} still waiting to be uploaded.
+                    </span>
+                    <GlassButton size="sm" variant="primary" disabled={!availability.allows('upload')}
+                        onClick={() => {
+                            const files = unsentUpload.files;
+                            setUnsentUpload(null);
+                            void onUploadFiles(files);
+                        }}>
+                        Send remaining files
+                    </GlassButton>
+                    <GlassButton size="sm" variant="ghost" onClick={() => setUnsentUpload(null)}>Discard</GlassButton>
+                </div>
+            ) : null}
             {sidebarError || pollError ? (
                 <div className="space-y-1 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger" role="alert">
                     <p>{sidebarError || pollError}</p>
@@ -1650,7 +1701,7 @@ function ScopedDocumentExplorer({
                             }
                         }}
                     >
-                        {task ? <ExplorerProgress task={task} /> : null}
+                        {task ? <ExplorerProgress task={task} onStop={uploading ? onStopUpload : undefined} stopping={uploadStopping} /> : null}
                         {content()}
                     </div>
 

@@ -4,15 +4,18 @@
 // Executes the real V2 workspace upload queue (lib/documentUploadQueue.ts) and the real upload
 // adapter (lib/documentOperations.ts) against controlled HTTP. A large selection is sent as a
 // series of small requests, in order, each within the file and byte limits; what the server says
-// about each request is merged; a request refused with per-file reasons does not stop the queue;
-// a request with no confirmed outcome does, and the files never sent are counted.
+// about each request is merged. Neither a request refused with per-file reasons nor a request
+// with no confirmed outcome stops the queue: one bad file costs its own request, not the
+// selection. The queue stops only when requests fail in a row or the session has ended, and then
+// hands back the files it never sent, in order, so they can be sent later without sending
+// anything twice.
 
 import assert from 'node:assert/strict';
 import './test_support/tsResolve.mjs';
 
 const { PERSONAL_DOCUMENT_OPERATIONS } = await import('../application/v2_ui/src/lib/documentOperations.ts');
 const {
-    UPLOAD_BATCH_MAX_BYTES, UPLOAD_BATCH_MAX_FILES, planUploadBatches, uploadInBatches,
+    UPLOAD_BATCH_MAX_BYTES, UPLOAD_BATCH_MAX_FILES, UPLOAD_MAX_CONSECUTIVE_FAILURES, planUploadBatches, uploadInBatches,
 } = await import('../application/v2_ui/src/lib/documentUploadQueue.ts');
 
 const originalFetch = globalThis.fetch;
@@ -75,6 +78,7 @@ try {
         assert.deepEqual(outcome.processed_filenames, files.map((file) => file.name));
         assert.equal(outcome.document_ids.length, 23);
         assert.deepEqual([outcome.errors, outcome.unsent, outcome.stopped], [[], 0, null]);
+        assert.deepEqual([outcome.remaining, outcome.unconfirmed], [[], []]);
     });
 
     await check('a request refused with per-file reasons does not stop the queue', async () => {
@@ -90,19 +94,54 @@ try {
         assert.deepEqual([outcome.unsent, outcome.stopped], [0, null]);
     });
 
-    await check('a request with no confirmed outcome stops the queue and counts what was never sent', async () => {
+    await check('a request with no confirmed outcome costs its own files and the queue carries on', async () => {
         let request = 0;
+        const progress = [];
         const outcome = await uploadInBatches(sized(22), async (batch) => {
             request += 1;
-            if (request === 2) throw new Error('Connection lost.');
+            if (request === 2 || request === 4) throw new Error('Connection lost.');
+            return receipt(batch);
+        }, { onProgress: (state) => progress.push(state.completed) });
+        assert.equal(request, 5);
+        assert.equal(outcome.document_ids.length, 12);
+        assert.deepEqual([outcome.unsent, outcome.remaining, outcome.stopped], [0, [], null]);
+        assert.equal(outcome.errors.length, 2);
+        assert.match(outcome.errors[0], /^file-6\.txt, .*file-10\.txt: Connection lost\.$/);
+        assert.deepEqual(outcome.unconfirmed.map((file) => file.name), [
+            'file-6.txt', 'file-7.txt', 'file-8.txt', 'file-9.txt', 'file-10.txt',
+            'file-16.txt', 'file-17.txt', 'file-18.txt', 'file-19.txt', 'file-20.txt',
+        ]);
+        assert.deepEqual(progress, [5, 10, 15, 20, 22]);
+    });
+
+    await check('requests failing in a row stop the queue and hand back what was never sent', async () => {
+        assert.equal(UPLOAD_MAX_CONSECUTIVE_FAILURES, 2);
+        let request = 0;
+        const outcome = await uploadInBatches(sized(32), async (batch) => {
+            request += 1;
+            if (request >= 2) throw new Error('SimpleChat could not be reached.');
             return receipt(batch);
         });
-        assert.equal(request, 2);
+        assert.equal(request, 3);
         assert.equal(outcome.document_ids.length, 5);
-        assert.equal(outcome.unsent, 12);
-        assert.equal(outcome.stopped, 'Connection lost.');
-        assert.equal(outcome.errors.length, 1);
-        assert.match(outcome.errors[0], /^file-6\.txt, .*file-10\.txt: Connection lost\.$/);
+        assert.equal(outcome.unconfirmed.length, 10);
+        assert.equal(outcome.stopped, 'SimpleChat could not be reached.');
+        assert.deepEqual(outcome.remaining.map((file) => file.name), sized(32).slice(15).map((file) => file.name));
+        assert.equal(outcome.unsent, 17);
+    });
+
+    await check('a failure that refuses every request stops at once and its files count as never sent', async () => {
+        let request = 0;
+        const ended = new Error('Sign in again.');
+        const outcome = await uploadInBatches(sized(14), async (batch) => {
+            request += 1;
+            if (request === 2) throw ended;
+            return receipt(batch);
+        }, { refusesEveryRequest: (cause) => cause === ended });
+        assert.equal(request, 2);
+        assert.deepEqual([outcome.document_ids.length, outcome.errors, outcome.unconfirmed], [5, [], []]);
+        assert.equal(outcome.stopped, 'Sign in again.');
+        assert.deepEqual(outcome.remaining.map((file) => file.name), sized(14).slice(5).map((file) => file.name));
     });
 
     await check('the queue stops before a request when asked not to continue', async () => {
@@ -114,6 +153,23 @@ try {
         assert.equal(request, 1);
         assert.deepEqual([outcome.document_ids.length, outcome.unsent], [5, 10]);
         assert.ok(outcome.stopped);
+        assert.deepEqual(outcome.unconfirmed, []);
+    });
+
+    await check('sending what remained after a stop sends every file exactly once', async () => {
+        const files = sized(17);
+        const sent = [];
+        let stop = false;
+        const upload = async (batch) => {
+            sent.push(...batch.map((file) => file.name));
+            stop = true;
+            return receipt(batch);
+        };
+        const first = await uploadInBatches(files, upload, { shouldContinue: () => !stop });
+        assert.equal(first.remaining.length, 12);
+        const second = await uploadInBatches(first.remaining, upload);
+        assert.deepEqual([second.unsent, second.stopped], [0, null]);
+        assert.deepEqual(sent, files.map((file) => file.name));
     });
 
     await check('the real personal adapter carries 120 files as 24 requests of 5', async () => {

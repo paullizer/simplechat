@@ -530,9 +530,10 @@ def test_the_documents_explorer_asks_after_validation_and_before_it_sends():
         "onUploadFiles must list agreementGate.confirm in its dependencies"
     )
 
-    # The file input and the drop region call it, and so does nothing else: both go through the gate.
+    # The file input, the drop region and "Send remaining files" call it, and so does nothing else:
+    # all three go through the gate.
     callers = re.findall(r"onUploadFiles\(", source)
-    assert len(callers) == 2, "A new caller of onUploadFiles still reaches the gate, but check it is intended"
+    assert len(callers) == 3, "A new caller of onUploadFiles still reaches the gate, but check it is intended"
     assert "onUpload={() => fileInputRef.current?.click()}" in source
     print("  The explorer asks only about files it will send, for the workspace it sends them to.")
 

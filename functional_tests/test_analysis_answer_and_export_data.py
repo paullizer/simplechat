@@ -33,6 +33,14 @@ from test_workflow_result_contract import SerializedSections
 
 exports = import_app_module("functions_generated_file_exports")
 workflow_execution = import_app_module("functions_workflow_execution")
+request_intent = import_app_module("functions_request_intent")
+# The copied export route checks the turn's request-intent decision; none is bound here,
+# so no export is withheld.
+REQUEST_INTENT_NAMES = {
+    "action_withheld": request_intent.action_withheld,
+    "ACTION_FILE_EXPORT": request_intent.ACTION_FILE_EXPORT,
+    "RequestIntentWithheldError": request_intent.RequestIntentWithheldError,
+}
 APP = Path(__file__).resolve().parents[1] / "application" / "single_app"
 
 
@@ -197,6 +205,7 @@ def test_workflow_explanation_exports_keep_the_original_source_restrictions(save
             "file_content": text.encode(), "row_count": 200000, "_structured_rows": [{"finding": "No owner"}],
         },
         "get_settings": lambda: {},
+        **REQUEST_INTENT_NAMES,
         "build_tabular_generated_output_row_batches": lambda rows, **kwargs: [rows],
         "should_queue_tabular_generated_output_background": lambda *args: True,
         "queue_tabular_generated_output_run": lambda **kwargs: pytest.fail("A source-bound export cannot become an unbound background copy."),
@@ -359,6 +368,7 @@ def test_chat_structured_export_uses_final_values_not_envelope_or_raw_fallback(o
         "_build_assistant_file_export_name": lambda value: f"analysis.{value}",
         "upload_generated_analysis_artifact_for_current_user": upload,
         "log_event": lambda *args, **kwargs: None,
+        **REQUEST_INTENT_NAMES,
     }
     exec(compile(ast.Module(body=[existing_xsd_output, node], type_ignores=[]), str(source), "exec"), namespace)
     artifact = namespace["maybe_create_assistant_file_generated_output"](
@@ -407,6 +417,7 @@ def test_workflow_file_finalizer_uploads_projected_values_and_retains_saved_line
         "has_generated_file_output": lambda *args: False,
         "build_generated_file_export": exports.build_generated_file_export,
         "get_settings": lambda: {},
+        **REQUEST_INTENT_NAMES,
         "build_tabular_generated_output_row_batches": forbidden,
         "should_queue_tabular_generated_output_background": forbidden,
         "upload_generated_analysis_artifact_for_user": upload,

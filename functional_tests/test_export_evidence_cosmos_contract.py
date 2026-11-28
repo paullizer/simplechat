@@ -121,7 +121,8 @@ def test_changed_tabular_test_containers_now_return_sdk_points_by_default():
     other_conversations = upload.__globals__["cosmos_conversations_container"]
     other_point = other_conversations.read_item("conversation", "conversation")
     assert type(other_point) is CosmosDict
-    written = messages.upsert_item({"id": "artifact", "_etag": "kept"})
+    # Like Cosmos DB, the message double assigns the ETag on write.
+    written = messages.upsert_item({"id": "artifact", "conversation_id": "conversation"})
     read = messages.read_item("artifact", "conversation")
     assert type(written) is CosmosDict and type(read) is CosmosDict
-    assert written["_etag"] == read["_etag"] == "kept"
+    assert written["_etag"] == read["_etag"]

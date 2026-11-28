@@ -57,8 +57,13 @@ def isolate_inventory_cache():
 
 @pytest.fixture
 def inventory_store():
+    # The inventory cache is keyed by id(storage) when no cache namespace is given. A
+    # freed store's id can be reused by the next test's store, which would then see
+    # the previous test's cached inventory, so each test starts and ends with it empty.
+    clear_excel_inventory_cache()
     service = FakeBlobService()
-    return ScreeningStorage(service), service
+    yield ScreeningStorage(service), service
+    clear_excel_inventory_cache()
 
 
 def test_inventory_generations_use_current_uuid_factory(review_workbook, inventory_store, monkeypatch):

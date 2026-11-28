@@ -25,6 +25,7 @@ from types import SimpleNamespace
 APP_ROOT = Path(__file__).resolve().parents[1] / "application" / "single_app"
 sys.path.insert(0, str(APP_ROOT))
 
+from functions_context_usage import resolve_context_limits
 from functions_model_endpoint_urls import normalize_model_endpoint_routing, resolve_model_endpoint_route
 from functions_model_endpoint_types import get_model_endpoint_api_type, resolve_model_endpoint_request_model
 from model_endpoint_clients import ModelEndpointBehavior, infer_model_endpoint_protocol
@@ -101,6 +102,11 @@ def test_schema_v2_streaming_uses_model_route_and_validates_agent_binding():
         node for node in source.body
         if isinstance(node, ast.FunctionDef) and node.name == "build_streaming_multi_endpoint_client"
     )
+    context_limits_field = next(
+        node for node in source.body
+        if isinstance(node, ast.Assign)
+        and any(getattr(target, "id", None) == "CONTEXT_LIMITS_REQUEST_FIELD" for target in node.targets)
+    )
     endpoint = {
         "id": "endpoint-1", "name": "Verified gateway", "provider": "custom",
         "routing_schema_version": 2, "enabled": True,
@@ -161,6 +167,8 @@ def test_schema_v2_streaming_uses_model_route_and_validates_agent_binding():
         "MODEL_ENDPOINT_PROTOCOL_AZURE_OPENAI": "azure_openai",
         "debug_print": lambda *_args, **_kwargs: None,
         "validate_custom_model_endpoint": lambda *_args, **_kwargs: None,
+        # The resolver records the chosen model's context limits for the request.
+        "resolve_context_limits": resolve_context_limits,
         "_resolve_canonical_chat_agent": lambda *_args, **_kwargs: {
             "id": "agent-1",
             "model_endpoint_id": "endpoint-1",
@@ -168,7 +176,7 @@ def test_schema_v2_streaming_uses_model_route_and_validates_agent_binding():
         },
     }
     client_calls = []
-    exec(compile(ast.Module(body=[wrapper, resolver], type_ignores=[]), "<stream-route-resolution>", "exec"), namespace)
+    exec(compile(ast.Module(body=[context_limits_field, wrapper, resolver], type_ignores=[]), "<stream-route-resolution>", "exec"), namespace)
     request = {
         "model_endpoint_id": "endpoint-1", "model_id": "model-1",
         "model_provider": "anthropic", "model_deployment": "client-override",

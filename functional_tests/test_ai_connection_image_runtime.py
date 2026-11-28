@@ -295,6 +295,13 @@ class SharedImageRuntimeTests(ImageRuntimeTestCase):
             "debug_print": Mock(), "log_event": self.logs,
             "build_json_error_response": Mock(return_value="initialization-failed"),
         }
+        # The block reads the request field that carries the chosen model's context limits.
+        field = next(
+            node for node in ast.parse(source).body
+            if isinstance(node, ast.Assign)
+            and any(getattr(target, "id", None) == "CONTEXT_LIMITS_REQUEST_FIELD" for target in node.targets)
+        )
+        exec(compile(ast.Module(body=[field], type_ignores=[]), "route_backend_chats.py", "exec"), namespace)
         exec(compile(function_source, "image_chat_setup_test", "exec"), namespace)
         for chat_switch in (False, True):
             namespace["settings"]["enable_multi_model_endpoints"] = chat_switch

@@ -1,5 +1,5 @@
 // test_v2_reasoning_effort_logic.mjs
-// Version: 0.261.493
+// Version: 0.261.494
 // Implemented in: 0.261.104
 // Execute real frontend resolution against the canonical Python policy, not a second family table.
 

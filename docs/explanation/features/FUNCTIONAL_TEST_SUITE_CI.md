@@ -1,6 +1,6 @@
 # Functional Test Suite in CI
 
-Implemented in version: **0.261.493**
+Implemented in version: **0.261.494**
 
 ## Overview and Purpose
 
@@ -41,10 +41,35 @@ Dependencies: the pinned application and development requirements, Node 24 with
   all skip.
 - The JavaScript suite (`run_tests.py js`) is unchanged.
 
+### Running on Linux and macOS
+
+The known-failures list was first built on Windows. Running the suite on a fresh
+Linux runner showed tests that only worked on a developer's Windows machine:
+
+- **Tokenizer downloads.** The application counts tokens with tiktoken, which
+  downloads each encoding on first use. Many tests block the network, so they
+  failed on a machine with an empty tiktoken cache. `run_tests.py functional`
+  downloads all encodings once before the tests start.
+- **Session folder.** `app.py` keeps Flask sessions in `/app/flask_session`
+  unless `SESSION_FILE_DIR` is set. `functional_tests/conftest.py` sets it to a
+  temporary folder, since `/app` cannot be created outside the container.
+- **esbuild.** `node_modules/esbuild/bin/esbuild` is a JavaScript launcher on
+  Windows and the native executable elsewhere.
+  `test_support/node_tools.esbuild_command()` starts it either way.
+- **Paths and encodings.** Test file paths use forward slashes, and Node output
+  is decoded as UTF-8 rather than with the Windows console code page.
+- **A built V2 bundle.** The V1 chat bootstrap test no longer depends on whether
+  the V2 SPA has been built on the machine running it.
+
+Fixing these, and the test stubs that had fallen behind the application
+(`group_identity_harness.py`, `shared_secret_responses.py`), brought 178 listed
+tests back to passing, and they were removed from the list.
+
 ### File structure
 
 - `.github/workflows/functional-test-suite.yml` (new)
 - `scripts/check_known_failures_shrink.py` (new)
+- `functional_tests/test_support/node_tools.py` (new: starts esbuild on every platform)
 - `functional_tests/test_support/known_failures_list.py` (new: the list parser, without pytest, for the guard and the JavaScript job)
 - `scripts/run_tests.py` (per-file runner, sharding)
 - `functional_tests/test_functional_suite_ci_runner.py` (new)

@@ -1,8 +1,8 @@
 # check_known_failures_shrink.py
 """Fail when functional_tests/known_failures.txt gains an entry.
 
-Version: 0.261.493
-Implemented in: 0.261.493
+Version: 0.261.494
+Implemented in: 0.261.494
 
 The known-failures list records tests that fell behind the application before the
 suite was normalized. It may only shrink: a change that breaks a test must fix the

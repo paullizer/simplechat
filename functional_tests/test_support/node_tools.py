@@ -1,8 +1,8 @@
 # node_tools.py
 """Run the V2 UI's Node tools the same way on Windows, Linux and macOS.
 
-Version: 0.261.493
-Implemented in: 0.261.493
+Version: 0.261.494
+Implemented in: 0.261.494
 
 ``application/v2_ui/node_modules/esbuild/bin/esbuild`` is a JavaScript launcher on
 Windows, which has to be run with ``node``. On Linux and macOS, esbuild's install

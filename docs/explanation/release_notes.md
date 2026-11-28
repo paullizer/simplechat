@@ -2,7 +2,7 @@
 
 For feature-focused and fix-focused drill-downs by version, see [Features by Version](https://github.com/microsoft/simplechat/tree/main/docs/explanation/features) and [Fixes by Version](https://github.com/microsoft/simplechat/tree/main/docs/explanation/fixes).
 
-### **(v0.261.493)**
+### **(v0.261.494)**
 
 #### New Features
 
@@ -10,7 +10,27 @@ For feature-focused and fix-focused drill-downs by version, see [Features by Ver
     *   A new workflow runs all Python functional tests, split across eight jobs, and all JavaScript functional tests on pull requests to Development and main. Before, only about 155 of roughly 2,000 Python test files ran in CI.
     *   `functional_tests/known_failures.txt` can now only shrink: the workflow fails a pull request that adds an entry, so a change that breaks a test has to fix it.
     *   `scripts/run_tests.py functional` runs each test file in its own pytest process, several at once, without pytest-xdist. `--shard K/N` runs one slice of the files, `--jobs` sets how many run at once, and a file that hangs is stopped after `--file-timeout` seconds.
-    *   (Ref: `functional-test-suite.yml`, `run_tests.py`, `check_known_failures_shrink.py`, `test_functional_suite_ci_runner.py`, `FUNCTIONAL_TEST_SUITE_CI.md`, `docs/contributing/testing.md`)
+    *   The suite now passes on Linux and macOS as well as Windows. `run_tests.py` downloads tiktoken's encodings before tests that block the network run, tests that import `app.py` keep Flask sessions in a temporary folder, esbuild is started the way each platform installs it, and test file paths no longer use Windows backslashes.
+    *   Fixing out-of-date test stubs and two Windows-only test bugs brought 178 listed tests back to passing, so they are off `functional_tests/known_failures.txt`.
+    *   (Ref: `functional-test-suite.yml`, `run_tests.py`, `check_known_failures_shrink.py`, `test_functional_suite_ci_runner.py`, `test_support/node_tools.py`, `functional_tests/conftest.py`, `FUNCTIONAL_TEST_SUITE_CI.md`, `docs/contributing/testing.md`)
+
+### **(v0.261.493)**
+
+#### Bug Fixes
+
+*   **Exports No Longer Start When the Prompt Forbids Them**
+    *   A prompt that mentioned a format in order to rule it out, such as "JSON output is not permitted" or "Step 5D will generate the JSON", could still start a background export and replace the answer with a status message. Keywords now only suggest a file export or background run; a short model check confirms the user wants it before anything starts.
+    *   "Do not create files", "do not initiate background processing" and "in chat only" are honored directly, each for its own action. "No files" does not block a background analysis, and neither affects memory or charts.
+    *   If the check fails or is unsure, nothing is started and the reply says what was held back and how to ask for it. Background run submission and file publication also check the decision themselves.
+    *   Adds the backend setting `request_intent_check_mode` (`active` by default, `shadow` to log only, `off`).
+    *   (Ref: `functions_request_intent.py`, `functions_generated_file_exports.py`, `functions_tabular_orchestration.py`, `functions_tabular_generated_exports.py`, `route_backend_chats.py`, `functional_tests/test_request_intent_side_effect_gate.py`, `docs/explanation/fixes/TABULAR_EXPORT_NEGATED_REQUEST_FIX.md`, `docs/explanation/features/REQUEST_INTENT_CHECK.md`)
+
+#### User Interface Enhancements
+
+*   **Background Export Status and Answer in Chat Instead**
+    *   The message shown when a background export or analysis starts now reads as an application status ("The app started a background job to generate the complete JSON for all 826 rows") instead of the assistant agreeing to do it.
+    *   The background export card has an **Answer in chat instead** button that cancels the run and answers the same request in chat. Classic interface only.
+    *   (Ref: `route_backend_chats.py`, `chat-messages.js`, `ui_tests/test_chat_background_generated_export_status.py`)
 
 ### **(v0.261.492)**
 

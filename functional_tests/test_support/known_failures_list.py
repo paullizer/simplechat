@@ -1,8 +1,8 @@
 # known_failures_list.py
 """Parse ``functional_tests/known_failures.txt``.
 
-Version: 0.261.493
-Implemented in: 0.261.493
+Version: 0.261.494
+Implemented in: 0.261.494
 
 Kept apart from the pytest plugin in ``known_failures.py`` so that scripts which
 only read the list (``scripts/run_tests.py js``,

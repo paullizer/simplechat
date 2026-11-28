@@ -368,8 +368,13 @@ export function ExplorerCommandBar({
  */
 export function ExplorerProgress({
     task,
+    onStop,
+    stopping = false,
 }: {
     task: { label: string; completed: number; total: number };
+    /** Present for work that runs as a queue and can be stopped between its requests. */
+    onStop?: () => void;
+    stopping?: boolean;
 }) {
     const total = Math.max(1, task.total);
     const percent = Math.min(100, Math.round((task.completed / total) * 100));
@@ -398,6 +403,11 @@ export function ExplorerProgress({
             <span className="shrink-0 text-xs tabular-nums text-text-3">
                 {task.completed} of {task.total}
             </span>
+            {onStop ? (
+                <GlassButton size="sm" variant="ghost" onClick={onStop} disabled={stopping}>
+                    {stopping ? 'Stopping after this request' : 'Stop'}
+                </GlassButton>
+            ) : null}
         </div>
     );
 }

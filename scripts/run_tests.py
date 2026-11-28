@@ -186,9 +186,13 @@ def main(argv=None):
     parser.add_argument("--jobs", type=int, help="functional test files run at once (default: CPU count)")
     parser.add_argument("--file-timeout", type=int, default=FILE_TIMEOUT_SECONDS,
                         help="seconds before a functional test file is stopped")
-    parser.add_argument("extra", nargs=argparse.REMAINDER, help="arguments after -- go to pytest or node")
+    parser.epilog = "Arguments after -- go to pytest (or node for js)."
+    argv = list(sys.argv[1:] if argv is None else argv)
+    # Split at -- by hand: argparse.REMAINDER would also swallow --shard and the
+    # other options when they follow the suite name.
+    split = argv.index("--") if "--" in argv else len(argv)
+    argv, extra = argv[:split], argv[split + 1:]
     args = parser.parse_args(argv)
-    extra = args.extra[1:] if args.extra[:1] == ["--"] else args.extra
     # Test output can hold characters a Windows console code page cannot print.
     sys.stdout.reconfigure(errors="replace")
 

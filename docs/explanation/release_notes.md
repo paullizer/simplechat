@@ -2,6 +2,19 @@
 
 For feature-focused and fix-focused drill-downs by version, see [Features by Version](https://github.com/microsoft/simplechat/tree/main/docs/explanation/features) and [Fixes by Version](https://github.com/microsoft/simplechat/tree/main/docs/explanation/fixes).
 
+### **(v0.261.492)**
+
+#### New Features
+
+*   **Upload Hundreds of Files at Once in the V2 Workspace**
+    *   The V2 Documents page sent every selected file in one request, so a selection of more than about ten files could fail as a whole. It now sends the selection from the browser as a queue of small requests (up to 5 files or 50 MB each), one after another, so a selection of 250 files or more goes through.
+    *   The progress bar counts files as each request is answered, and has a **Stop** button that ends the queue after the request in flight. One bad file no longer costs the selection: a file the server refuses, or a request that fails outright, is reported and the queue carries on with the rest.
+    *   The queue stops early only when you stop it, the session ends, or two requests in a row fail. The files that were never sent are kept, and **Send remaining files** continues with them without sending anything twice.
+    *   The browser now asks before the tab is closed or reloaded while an upload is running.
+    *   There is no limit on the number of files in a selection. Each file must still be within the maximum file size, and the page has to stay open until the queue finishes. Files are accepted faster than they are processed, so a very large selection takes time to finish processing after the upload ends.
+    *   Personal, group and public workspaces all use the queue. The server routes are unchanged.
+    *   (Ref: `documentUploadQueue.ts`, `DocumentExplorer.tsx`, `ExplorerCommandBar.tsx`, `test_v2_document_upload_queue_logic.mjs`, `V2_WORKSPACE_UPLOAD_QUEUE.md`)
+
 ### **(v0.261.491)**
 
 #### Bug Fixes

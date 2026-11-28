@@ -1,5 +1,5 @@
 // test_v2_reasoning_effort_logic.mjs
-// Version: 0.261.104
+// Version: 0.261.493
 // Implemented in: 0.261.104
 // Execute real frontend resolution against the canonical Python policy, not a second family table.
 
@@ -18,7 +18,7 @@ import {
 const root = fileURLToPath(new URL('../', import.meta.url));
 const policies = JSON.parse(execFileSync('python', ['-c', `
 import json, sys
-sys.path.insert(0, r'application\\single_app')
+sys.path.insert(0, 'application/single_app')
 from functions_model_capabilities import resolve_model_reasoning_policy
 print(json.dumps({name: resolve_model_reasoning_policy(name) for name in
     ['gpt-5.6-luna', 'gpt-5', 'gpt-5.1', 'gpt-5-pro', 'o3', 'gpt-4o', 'unknown-private-model']}))

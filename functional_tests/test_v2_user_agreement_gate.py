@@ -2,7 +2,7 @@
 # test_v2_user_agreement_gate.py
 """
 Functional test for the V2 user agreement gate.
-Version: 0.261.448
+Version: 0.261.492
 Implemented in: 0.261.448
 
 An administrator can require a user agreement before files are uploaded
@@ -523,16 +523,17 @@ def test_the_documents_explorer_asks_after_validation_and_before_it_sends():
         "agreementGate.confirm(workspaceAgreementScope(captured.adapter.scope), accepted)",
         "|| !operationTargets('upload')) return;",
         "beginMutation('Uploading files'",
-        "captured.adapter.upload(accepted)",
+        "uploadInBatches(accepted, (batch) => captured.adapter.upload(batch)",
     ], "onUploadFiles")
     # The memoized callback must list the gate among its dependencies, wherever else it grows.
     assert re.search(r"\[[^\[\]]*agreementGate\.confirm[^\[\]]*\],\s*\)", upload), (
         "onUploadFiles must list agreementGate.confirm in its dependencies"
     )
 
-    # The file input and the drop region call it, and so does nothing else: both go through the gate.
+    # The file input, the drop region and "Send remaining files" call it, and so does nothing else:
+    # all three go through the gate.
     callers = re.findall(r"onUploadFiles\(", source)
-    assert len(callers) == 2, "A new caller of onUploadFiles still reaches the gate, but check it is intended"
+    assert len(callers) == 3, "A new caller of onUploadFiles still reaches the gate, but check it is intended"
     assert "onUpload={() => fileInputRef.current?.click()}" in source
     print("  The explorer asks only about files it will send, for the workspace it sends them to.")
 
